@@ -8,6 +8,7 @@ import { fetchYahoo } from './sources/yahoo';
 import { fetchFred } from './sources/fred';
 import { fetchCoinGecko, type CoinField } from './sources/coingecko';
 import { commonCalendar, resampleToCalendar } from './align';
+import { smaWindows } from './calc';
 
 export interface LeafSpec {
   apiSource: Instrument['apiSource'];
@@ -127,23 +128,28 @@ async function syntheticFromConstituents(
 /** Bir endeksin kendi sütun serisini döndürür (gerçek seri ya da synthetic). */
 export async function fetchIndexSeries(idx: IndexDef, timeframe: Timeframe): Promise<Candle[]> {
   if (idx.apiSource !== 'synthetic') {
+    // Gerçek seri yalnızca YETERLİ uzunluktaysa kabul edilir. Yahoo BIST sektör
+    // endeksleri (XELKT.IS vb.) çoğu zaman boş YA DA çok kısa/seyrek seri döndürür;
+    // kısa seri rasyo hizalamasında NA üretir. Bu yüzden uzun SMA penceresi kadar
+    // veri yoksa bileşenlerden türetilen vekile düşülür (stock için garantili).
+    const minLen = smaWindows(timeframe).long + 5;
+    let real: Candle[] = [];
     try {
-      const real = await fetchLeaf(
+      real = await fetchLeaf(
         { apiSource: idx.apiSource, apiSymbol: idx.apiSymbol, scale: idx.scale },
         timeframe
       );
-      if (real.length > 0) return real;
-      throw new Error('boş');
-    } catch (err) {
-      // Gerçek endeks serisi yoksa (ör. Yahoo XELKT.IS veri döndürmüyor) BIST
-      // hisse endekslerini bileşenlerden türet. Bireysel `.IS` hisseleri çalışır,
-      // bu yüzden sektör kriteri (enstrüman / sektör endeksi) artık garantili.
-      if (idx.assetClass === 'stock' && idx.constituents.length > 0) {
-        const proxy = await syntheticFromConstituents(idx, timeframe);
-        if (proxy.length > 0) return proxy;
-      }
-      throw err;
+    } catch {
+      real = [];
     }
+    if (real.length >= minLen) return real;
+
+    if (idx.assetClass === 'stock' && idx.constituents.length > 0) {
+      const proxy = await syntheticFromConstituents(idx, timeframe);
+      if (proxy.length > 0) return proxy;
+    }
+    if (real.length > 0) return real; // stock değilse en azından kısa gerçek seri
+    throw new Error(`Endeks serisi alınamadı: ${idx.key}`);
   }
   const method = idx.synthetic?.method ?? 'avg';
   const exclude = new Set(idx.synthetic?.exclude ?? []);
