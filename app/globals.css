@@ -312,6 +312,68 @@ thead .idx-head th.corner {
   vertical-align: 1px;
 }
 
+.score-cell {
+  cursor: pointer;
+}
+.score-cell.active {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Dokunmatik kırılım paneli */
+.score-detail {
+  margin-top: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--paper);
+  padding: 12px 14px;
+}
+.sd-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.sd-close {
+  padding: 4px 9px;
+  font-size: 11.5px;
+}
+.sd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.sd-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--grid);
+}
+.sd-ref {
+  font-weight: 600;
+}
+.sd-w {
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.sd-c {
+  white-space: nowrap;
+}
+.sd-p {
+  text-align: right;
+  white-space: nowrap;
+}
+.sd-regime {
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+.sd-note {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin: 8px 0 0;
+}
+
 /* Haber / gündem paneli */
 .news {
   margin-top: 18px;

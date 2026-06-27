@@ -51,7 +51,8 @@ const coin = (
 
 export const REFERENCES: ReferenceRow[] = [
   { symbol: 'USDTRY', displayName: 'USD/TRY', kind: 'price', apiSource: 'yahoo', apiSymbol: 'USDTRY=X' },
-  { symbol: 'US10Y', displayName: 'ABD 10Y', kind: 'rate', apiSource: 'yahoo', apiSymbol: '^TNX', scale: 0.1 },
+  // ^TNX zaten yüzde olarak gelir (ör. 4.5 = %4.5); ölçeklenmez.
+  { symbol: 'US10Y', displayName: 'ABD 10Y', kind: 'rate', apiSource: 'yahoo', apiSymbol: '^TNX' },
   // Reel faiz (ABD 10Y TIPS) — yalnızca ek gösterge satırı; skora dahil edilmez.
   // Altının fırsat maliyetini enflasyondan arındırılmış olarak okumak için panoramaya eklenir.
   { symbol: 'US10YR', displayName: 'ABD Reel Faiz (10Y TIPS)', kind: 'rate', apiSource: 'fred', apiSymbol: 'DFII10' },
@@ -71,7 +72,7 @@ export const REFERENCES: ReferenceRow[] = [
 // ----------------------------------------------------------------------------
 
 export const FX_YIELDS: Record<string, { apiSource: 'fred' | 'yahoo'; apiSymbol: string; scale?: number }> = {
-  USD: { apiSource: 'yahoo', apiSymbol: '^TNX', scale: 0.1 },
+  USD: { apiSource: 'yahoo', apiSymbol: '^TNX' },
   TRY: { apiSource: 'fred', apiSymbol: 'IRLTLT01TRM156N' },
   EUR: { apiSource: 'fred', apiSymbol: 'IRLTLT01EZM156N' },
   GBP: { apiSource: 'fred', apiSymbol: 'IRLTLT01GBM156N' },

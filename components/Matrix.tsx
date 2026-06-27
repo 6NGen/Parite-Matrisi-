@@ -115,6 +115,7 @@ export default function Matrix() {
   const [data, setData] = useState<MatrixResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detailCol, setDetailCol] = useState<string | null>(null); // SKOR dokununca açılan kırılım (mobil)
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -292,8 +293,14 @@ export default function Matrix() {
               {FLAT_INDICES.map(({ idx }) => {
                 const col = columnsByKey.get(idx.key);
                 const penalized = col?.score.regime?.applied ?? false;
+                const active = detailCol === idx.key;
                 return (
-                  <td key={idx.key} title={col ? scoreTitle(col) : undefined}>
+                  <td
+                    key={idx.key}
+                    className={`score-cell${active ? ' active' : ''}`}
+                    title={col ? scoreTitle(col) : undefined}
+                    onClick={() => col && setDetailCol(active ? null : idx.key)}
+                  >
                     <span className="num score-val">{col ? col.score.score : '—'}</span>
                     {penalized && (
                       <span className="regime-flag" title="Yapısal düşüş: skor kısıldı">
@@ -319,6 +326,13 @@ export default function Matrix() {
         </table>
       </div>
 
+      {detailCol && columnsByKey.get(detailCol) && (
+        <ScoreDetail
+          col={columnsByKey.get(detailCol)!}
+          onClose={() => setDetailCol(null)}
+        />
+      )}
+
       <div className="legend">
         <span>
           <span className="swatch" style={{ background: 'rgba(34,197,94,0.7)' }} />
@@ -334,7 +348,7 @@ export default function Matrix() {
           <span className="regime-flag">▽</span> = yapısal düşüş (fiyat uzun SMA altında), skor
           kısıldı
         </span>
-        <span>SKOR üzerine gelince kriter kırılımı + kanaat % görünür.</span>
+        <span>SKOR'a dokun/tıkla → kriter kırılımı + kanaat % açılır.</span>
       </div>
 
       {data && data.warnings.length > 0 && (
@@ -355,4 +369,50 @@ export default function Matrix() {
 
 function naCell(): CellResult {
   return { ratioNow: NaN, deltaPct: 0, trendUp: false, na: true };
+}
+
+// Dokunmatik/mobil kırılım paneli — SKOR'a dokununca açılır.
+function ScoreDetail({ col, onClose }: { col: ColumnResult; onClose: () => void }) {
+  const s = col.score;
+  return (
+    <div className="score-detail">
+      <div className="sd-head">
+        <strong>
+          {col.displayName} — SKOR {s.score}
+          {s.rawScore != null && s.rawScore !== s.score ? ` (ham ${s.rawScore})` : ''} ·{' '}
+          <span className={signalClass(s.signal)}>{s.signal}</span>
+        </strong>
+        <button className="btn sd-close" onClick={onClose}>
+          Kapat ✕
+        </button>
+      </div>
+      <table className="sd-table">
+        <tbody>
+          {s.breakdown.map((b) => (
+            <tr key={b.ref}>
+              <td className="sd-ref">{b.ref}</td>
+              <td className="sd-w num">ağ. {b.weight}</td>
+              <td className="sd-c num">
+                {b.na ? '— veri yok' : `kanaat %${Math.round((b.conviction ?? 0) * 100)}`}
+              </td>
+              <td className="sd-p">{b.na ? '' : b.passed ? '▲ lehine' : '▼ aleyhine'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {s.regime && !s.regime.na && (
+        <p className="sd-regime">
+          Rejim: fiyat uzun SMA'nın{' '}
+          <strong>{s.regime.up ? 'ÜSTÜNDE (yükseliş)' : 'ALTINDA (düşüş)'}</strong>{' '}
+          ({s.regime.deltaPct >= 0 ? '+' : ''}
+          {s.regime.deltaPct.toFixed(1)}%)
+          {s.regime.applied ? ' — yapısal düşüş cezası uygulandı (×0.6).' : '.'}
+        </p>
+      )}
+      <p className="sd-note">
+        Skor = Σ(ağırlık × kanaat) / toplam geçerli ağırlık. Kanaat, hareketin
+        enstrümanın kendi oynaklığına göre gücüdür.
+      </p>
+    </div>
+  );
 }
