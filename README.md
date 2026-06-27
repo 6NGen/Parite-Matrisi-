@@ -44,6 +44,20 @@ lib/
 - **Skor baremi:** ≥80 GÜÇLÜ AL · 60–79 KADEMELİ AL · 40–59 NÖTR · 20–39 KADEMELİ SAT · <20 GÜÇLÜ SAT.
 - **Forex:** rasyo değil **faiz makası** (baz 10Y − kotasyon 10Y) trendi — ayrı kod yolu.
 
+### Sinyal kalitesi iyileştirmeleri
+1. **Dereceli skor:** Kriter katkısı ikili (geç/kal) değil; `delta%` büyüklüğünden türetilen
+   **kanaat [0–1]** ile ağırlıklanır (`convictionFromDelta`). Kıl payı kesişim ile güçlü
+   trend ayrışır → sahte 100'ler azalır. Tam kanaat eşiği: günlük %3, haftalık %6.
+2. **Uzun vadeli rejim kapısı:** Enstrümanın kendi fiyatı yavaş SMA'sının (günlük 200,
+   haftalık 40) altındaysa (yapısal düşüş) skor `×0.6` ile kısılır (`regimeFromSeries`).
+   UI'da `▽` işareti ve SKOR tooltip'inde gösterilir. Yapısal düşüşte kısa vadeli
+   zıplamanın "GÜÇLÜ AL" üretmesini engeller.
+3. **Hisse makro referansı TR10Y:** BIST hisseleri için makro baskı kriteri (20 puan)
+   US10Y yerine **TR10Y** (Türk varlığına daha doğrudan); TR10Y verisi yoksa US10Y'ye düşer.
+
+SKOR hücresinin üzerine gelince kriter kırılımı, her kriterin kanaat yüzdesi, ham skor ve
+rejim durumu tooltip olarak görünür.
+
 ## Skorlama ağırlıkları (§5.2)
 | Sınıf | Kriterler |
 |---|---|
@@ -53,6 +67,14 @@ lib/
 | Emtia – Gümüş | `/XAUUSD` (50) · `/COPPER` (50) |
 | Emtia – diğer | `/US10Y` (50) · `/DXY` (50) |
 | Forex | Faiz makası trendi (100) |
+
+> Hisse makro kriteri TR10Y kullanır (yoksa US10Y). Tüm kriterler dereceli kanaatle
+> ağırlıklanır ve nihai skora uzun vadeli rejim kapısı uygulanır.
+
+## Gündem / Katalizör akışı
+Matrisin altında **ayrı** bir panel: seçili enstrümanlar için Yahoo haber başlıkları
+(`/api/news`). **Skora dahil değildir** — yalnızca bağlam/katalizör. Bu, aracın
+"anlatıya değil rölatif trende bak" disiplinini bozmadan haber bilgisini sağlar.
 
 ## Kurulum
 

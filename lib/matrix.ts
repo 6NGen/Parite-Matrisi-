@@ -14,7 +14,7 @@ import type {
 } from './types';
 import { ALL_INDICES, REFERENCES, FX_YIELDS, getIndex } from './catalog';
 import { fetchLeaf, fetchIndexSeries, instrumentSpec, refSpec } from './series';
-import { computeCell, computeSpreadTrend } from './calc';
+import { computeCell, computeSpreadTrend, regimeFromSeries } from './calc';
 import { computeScore, type ScoreContext } from './score';
 
 const NA_CELL: CellResult = { ratioNow: NaN, deltaPct: 0, trendUp: false, na: true };
@@ -147,8 +147,11 @@ async function buildScore(
     symbol: selected,
     assetClass,
     isIndex,
+    timeframe,
     cells,
     ownIndexCell,
+    // İYİLEŞTİRME 2 — rejim kapısı: sütunun kendi fiyat serisinin uzun SMA durumu.
+    regime: colSeries ? regimeFromSeries(colSeries, timeframe) : undefined,
   };
 
   if (assetClass === 'stock') {
@@ -181,7 +184,7 @@ async function forexSpreadTrend(
   fx: { base: string; quote: string } | undefined,
   timeframe: Timeframe,
   safe: (label: string, fn: () => Promise<Candle[]>) => Promise<Candle[] | null>
-): Promise<{ trendUp: boolean; na: boolean }> {
+): Promise<{ trendUp: boolean; na: boolean; deltaAbs?: number }> {
   if (!fx) return { trendUp: false, na: true };
   const baseY = FX_YIELDS[fx.base];
   const quoteY = FX_YIELDS[fx.quote];
@@ -194,5 +197,5 @@ async function forexSpreadTrend(
   if (!base || !quote) return { trendUp: false, na: true };
 
   const r = computeSpreadTrend(base, quote, timeframe);
-  return { trendUp: r.trendUp, na: r.na };
+  return { trendUp: r.trendUp, na: r.na, deltaAbs: r.deltaAbs };
 }

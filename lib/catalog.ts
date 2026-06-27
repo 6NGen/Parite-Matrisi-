@@ -312,3 +312,26 @@ export function getInstrument(indexKey: string, symbol: string): Instrument | un
 export function getXbankSymbol(): string {
   return 'XBANK';
 }
+
+/** Sade sembolden enstrümanı bul (tüm endekslerin bileşenlerinde ara). */
+export function findInstrumentBySymbol(symbol: string): Instrument | undefined {
+  for (const idx of ALL_INDICES) {
+    const found = idx.constituents.find((c) => c.symbol === symbol);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** Bir sembol için Yahoo haber arama sorgusunu üret. */
+export function newsQueryFor(symbol: string): string {
+  const idx = getIndex(symbol);
+  if (idx) {
+    // Endeks: BIST endeksi ise .IS sorgusu, değilse görünen adı.
+    return idx.assetClass === 'stock' ? `${symbol}.IS` : idx.displayName;
+  }
+  const inst = findInstrumentBySymbol(symbol);
+  if (!inst) return symbol;
+  if (inst.assetClass === 'stock') return `${symbol}.IS`;
+  if (inst.assetClass === 'crypto') return `${symbol}-USD`;
+  return symbol;
+}

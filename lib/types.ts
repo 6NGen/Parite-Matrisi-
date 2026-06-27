@@ -84,13 +84,32 @@ export interface ScoreBreakdownItem {
   weight: number;
   passed: boolean;
   na?: boolean;
+  conviction?: number; // 0–1, delta% büyüklüğünden türetilen kanaat (dereceli skor)
+}
+
+/** Uzun vadeli rejim kapısı: enstrümanın kendi fiyatının yavaş SMA'sına göre durumu. */
+export interface RegimeInfo {
+  up: boolean; // fiyat uzun SMA üstünde mi (yapısal yükseliş)
+  deltaPct: number; // (fiyat / SMA_uzun - 1) * 100
+  na: boolean;
+  applied: boolean; // skora ceza uygulandı mı (yalnızca yapısal düşüşte)
 }
 
 export interface ScoreResult {
   symbol: string;
-  score: number; // 0–100
+  score: number; // 0–100 (rejim kapısı uygulanmış nihai skor)
+  rawScore?: number; // rejim kapısından önceki skor (şeffaflık)
   signal: Signal;
   breakdown: ScoreBreakdownItem[];
+  regime?: RegimeInfo;
+}
+
+export interface NewsItem {
+  title: string;
+  publisher?: string;
+  link: string;
+  publishedAt?: number; // ms
+  relatedSymbol: string; // hangi sade sembol için çekildi
 }
 
 /** Bir sütunun tüm satırlara karşı hücreleri + skoru. */
