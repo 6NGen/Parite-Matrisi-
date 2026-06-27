@@ -101,6 +101,7 @@ Anahtarsız çalışır: Yahoo (anahtarsız), FRED (anahtarsız `fredgraph.csv`)
 |---|---|---|
 | BIST hisse/endeks | Yahoo | `AKFYE.IS`, `XU100.IS` |
 | ABD 10Y | Yahoo `^TNX` (÷10) | |
+| ABD Reel Faiz (10Y TIPS) | FRED `DFII10` | ek gösterge satırı, skora dahil değil |
 | TR/EUR/GBP/JPY/CHF 10Y | FRED (OECD uzun vadeli faiz) | aylık → resample |
 | M2 / Fed bilançosu | FRED | `M2SL`, `WALCL` |
 | Emtia | Yahoo futures | `GC=F`, `SI=F`, `HG=F`, `BZ=F` |
