@@ -15,7 +15,7 @@ import type {
 
 // Deploy doğrulama etiketi — yeni bir sürüm yayına girince bu metin değişir.
 // Böylece "yeni kod canlı mı" sayfanın altından tek bakışta anlaşılır.
-const APP_VERSION = 'sürüm 7 · sektör vekili + Odaklı/Geniş skor';
+const APP_VERSION = 'sürüm 8 · sektör vekili (kısa-seri düzeltmesi)';
 
 type ViewMode = 'value' | 'change' | 'heat';
 type ScoreMode = 'focused' | 'broad';
