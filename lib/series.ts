@@ -1,0 +1,134 @@
+// Veri çekme orkestrasyonu: leaf seri (yahoo/fred/coingecko) + cache +
+// synthetic endeks türetme (avg / mcapSum). Her hücre için ayrı çağrı yapılmaz;
+// matrix katmanı benzersiz sembolleri bir kez ister (§9).
+
+import type { Candle, IndexDef, Instrument, ReferenceRow, Timeframe } from './types';
+import { getCached, setCached } from './cache';
+import { fetchYahoo } from './sources/yahoo';
+import { fetchFred } from './sources/fred';
+import { fetchCoinGecko, type CoinField } from './sources/coingecko';
+import { commonCalendar, resampleToCalendar } from './align';
+
+export interface LeafSpec {
+  apiSource: Instrument['apiSource'];
+  apiSymbol: string;
+  scale?: number;
+  coinField?: CoinField;
+}
+
+function cacheSymbol(spec: LeafSpec): string {
+  const suffix = spec.coinField === 'mcap' ? '#mcap' : '';
+  return `${spec.apiSource}:${spec.apiSymbol}${suffix}`;
+}
+
+// Eşzamanlı çift çağrıları önlemek için uçuştaki istekleri tekilleştir.
+const inflight = new Map<string, Promise<Candle[]>>();
+
+/** Tekil (leaf) seri çekme — cache'li ve uçuş tekilleştirmeli. */
+export async function fetchLeaf(spec: LeafSpec, timeframe: Timeframe): Promise<Candle[]> {
+  const sym = cacheSymbol(spec);
+  const cached = getCached(sym, timeframe);
+  if (cached) return cached.candles;
+
+  const key = `${timeframe}:${sym}`;
+  const existing = inflight.get(key);
+  if (existing) return existing;
+
+  const promise = doFetchLeaf(spec, sym, timeframe).finally(() => inflight.delete(key));
+  inflight.set(key, promise);
+  return promise;
+}
+
+async function doFetchLeaf(spec: LeafSpec, sym: string, timeframe: Timeframe): Promise<Candle[]> {
+  let candles: Candle[];
+  switch (spec.apiSource) {
+    case 'yahoo':
+      candles = await fetchYahoo(spec.apiSymbol, timeframe);
+      break;
+    case 'fred':
+      candles = await fetchFred(spec.apiSymbol);
+      break;
+    case 'coingecko':
+      candles = await fetchCoinGecko(spec.apiSymbol, timeframe, spec.coinField ?? 'price');
+      break;
+    default:
+      throw new Error(`Bilinmeyen leaf kaynağı: ${spec.apiSource}`);
+  }
+
+  if (spec.scale && spec.scale !== 1) {
+    candles = candles.map((c) => ({ t: c.t, close: c.close * spec.scale! }));
+  }
+  setCached({ symbol: sym, timeframe, candles });
+  return candles;
+}
+
+export function refSpec(r: ReferenceRow): LeafSpec {
+  return { apiSource: r.apiSource, apiSymbol: r.apiSymbol, scale: r.scale };
+}
+
+export function instrumentSpec(i: Instrument): LeafSpec {
+  return { apiSource: i.apiSource, apiSymbol: i.apiSymbol, scale: i.scale };
+}
+
+/** Eşit-ağırlıklı normalize ortalama (forex sepeti, emtia grupları). */
+function averageSeries(seriesList: Candle[][], timeframe: Timeframe): Candle[] {
+  const cal = commonCalendar(seriesList, timeframe);
+  if (cal.length === 0) return [];
+  const resampled = seriesList.map((s) => resampleToCalendar(s, cal));
+  const out: Candle[] = [];
+  for (let i = 0; i < cal.length; i++) {
+    let sum = 0;
+    let n = 0;
+    for (const r of resampled) {
+      const first = r.find((v) => v != null && Number.isFinite(v) && v !== 0);
+      const v = r[i];
+      if (first == null || v == null || !Number.isFinite(v)) continue;
+      sum += (v / first) * 100; // ilk geçerli değere göre indeksle
+      n++;
+    }
+    if (n > 0) out.push({ t: cal[i], close: sum / n });
+  }
+  return out;
+}
+
+/** Piyasa değeri toplamı (kripto TOTAL/TOTAL2/TOTAL3). */
+function mcapSumSeries(seriesList: Candle[][], timeframe: Timeframe): Candle[] {
+  const cal = commonCalendar(seriesList, timeframe);
+  if (cal.length === 0) return [];
+  const resampled = seriesList.map((s) => resampleToCalendar(s, cal));
+  const out: Candle[] = [];
+  for (let i = 0; i < cal.length; i++) {
+    let sum = 0;
+    let any = false;
+    for (const r of resampled) {
+      const v = r[i];
+      if (v == null || !Number.isFinite(v)) continue;
+      sum += v;
+      any = true;
+    }
+    if (any) out.push({ t: cal[i], close: sum });
+  }
+  return out;
+}
+
+/** Bir endeksin kendi sütun serisini döndürür (gerçek seri ya da synthetic). */
+export async function fetchIndexSeries(idx: IndexDef, timeframe: Timeframe): Promise<Candle[]> {
+  if (idx.apiSource !== 'synthetic') {
+    return fetchLeaf({ apiSource: idx.apiSource, apiSymbol: idx.apiSymbol, scale: idx.scale }, timeframe);
+  }
+  const method = idx.synthetic?.method ?? 'avg';
+  const exclude = new Set(idx.synthetic?.exclude ?? []);
+  const members = idx.constituents.filter((c) => !exclude.has(c.symbol));
+
+  if (method === 'mcapSum') {
+    const series = await Promise.all(
+      members.map((c) =>
+        fetchLeaf({ apiSource: c.apiSource, apiSymbol: c.apiSymbol, coinField: 'mcap' }, timeframe)
+      )
+    );
+    return mcapSumSeries(series, timeframe);
+  }
+  // avg
+  const series = await Promise.all(members.map((c) => fetchLeaf(instrumentSpec(c), timeframe)));
+  return averageSeries(series, timeframe);
+}
