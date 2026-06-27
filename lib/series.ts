@@ -111,10 +111,39 @@ function mcapSumSeries(seriesList: Candle[][], timeframe: Timeframe): Candle[] {
   return out;
 }
 
+/** Bileşen hisselerinden normalize ortalama türetir (BIST sektör endeksi vekili). */
+async function syntheticFromConstituents(
+  idx: IndexDef,
+  timeframe: Timeframe
+): Promise<Candle[]> {
+  const series = await Promise.all(
+    idx.constituents.map((c) => fetchLeaf(instrumentSpec(c), timeframe).catch(() => [] as Candle[]))
+  );
+  const valid = series.filter((s) => s.length > 0);
+  if (valid.length === 0) return [];
+  return averageSeries(valid, timeframe);
+}
+
 /** Bir endeksin kendi sütun serisini döndürür (gerçek seri ya da synthetic). */
 export async function fetchIndexSeries(idx: IndexDef, timeframe: Timeframe): Promise<Candle[]> {
   if (idx.apiSource !== 'synthetic') {
-    return fetchLeaf({ apiSource: idx.apiSource, apiSymbol: idx.apiSymbol, scale: idx.scale }, timeframe);
+    try {
+      const real = await fetchLeaf(
+        { apiSource: idx.apiSource, apiSymbol: idx.apiSymbol, scale: idx.scale },
+        timeframe
+      );
+      if (real.length > 0) return real;
+      throw new Error('boş');
+    } catch (err) {
+      // Gerçek endeks serisi yoksa (ör. Yahoo XELKT.IS veri döndürmüyor) BIST
+      // hisse endekslerini bileşenlerden türet. Bireysel `.IS` hisseleri çalışır,
+      // bu yüzden sektör kriteri (enstrüman / sektör endeksi) artık garantili.
+      if (idx.assetClass === 'stock' && idx.constituents.length > 0) {
+        const proxy = await syntheticFromConstituents(idx, timeframe);
+        if (proxy.length > 0) return proxy;
+      }
+      throw err;
+    }
   }
   const method = idx.synthetic?.method ?? 'avg';
   const exclude = new Set(idx.synthetic?.exclude ?? []);
