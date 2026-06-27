@@ -8,11 +8,17 @@ import type {
   ColumnResult,
   MatrixResponse,
   MatrixSelection,
+  ScoreResult,
   Signal,
   Timeframe,
 } from '@/lib/types';
 
 type ViewMode = 'value' | 'change' | 'heat';
+type ScoreMode = 'focused' | 'broad';
+
+function pickScore(col: ColumnResult, mode: ScoreMode) {
+  return mode === 'broad' ? col.scoreBroad : col.score;
+}
 
 const VIEW_LABELS: Record<ViewMode, string> = {
   value: 'Parite Değeri',
@@ -62,8 +68,7 @@ function signalClass(sig: Signal): string {
 }
 
 // SKOR hücresi için kırılım + rejim açıklaması (hover tooltip).
-function scoreTitle(col: ColumnResult): string {
-  const s = col.score;
+function scoreTitle(s: ScoreResult): string {
   const lines = s.breakdown.map((b) => {
     if (b.na) return `${b.ref}: — (veri yok, skora katılmadı)`;
     const conv = b.conviction != null ? ` · kanaat ${(b.conviction * 100).toFixed(0)}%` : '';
@@ -111,6 +116,7 @@ function CellView({ cell, mode }: { cell: CellResult; mode: ViewMode }) {
 export default function Matrix() {
   const [timeframe, setTimeframe] = useState<Timeframe>('daily');
   const [view, setView] = useState<ViewMode>('value');
+  const [scoreMode, setScoreMode] = useState<ScoreMode>('focused');
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [data, setData] = useState<MatrixResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -191,6 +197,22 @@ export default function Matrix() {
                 {VIEW_LABELS[m]}
               </button>
             ))}
+          </div>
+          <div className="seg" role="group" aria-label="Skorlama modu">
+            <button
+              className={scoreMode === 'focused' ? 'active' : ''}
+              onClick={() => setScoreMode('focused')}
+              title="Sınıf için anlamlı referansların ağırlıklı alt kümesi"
+            >
+              Odaklı Skor
+            </button>
+            <button
+              className={scoreMode === 'broad' ? 'active' : ''}
+              onClick={() => setScoreMode('broad')}
+              title="Matristeki tüm satırlar eşit ağırlıkla (geniş panorama)"
+            >
+              Geniş Skor
+            </button>
           </div>
           <button className="btn" onClick={() => void load()} disabled={loading}>
             {loading ? 'Yükleniyor…' : 'Yenile'}
@@ -289,19 +311,23 @@ export default function Matrix() {
 
           <tfoot>
             <tr className="score-row">
-              <th className="row-head">SKOR</th>
+              <th className="row-head">
+                SKOR
+                <span className="rh-sub">{scoreMode === 'broad' ? 'geniş' : 'odaklı'}</span>
+              </th>
               {FLAT_INDICES.map(({ idx }) => {
                 const col = columnsByKey.get(idx.key);
-                const penalized = col?.score.regime?.applied ?? false;
+                const sc = col ? pickScore(col, scoreMode) : null;
+                const penalized = sc?.regime?.applied ?? false;
                 const active = detailCol === idx.key;
                 return (
                   <td
                     key={idx.key}
                     className={`score-cell${active ? ' active' : ''}`}
-                    title={col ? scoreTitle(col) : undefined}
+                    title={sc ? scoreTitle(sc) : undefined}
                     onClick={() => col && setDetailCol(active ? null : idx.key)}
                   >
-                    <span className="num score-val">{col ? col.score.score : '—'}</span>
+                    <span className="num score-val">{sc ? sc.score : '—'}</span>
                     {penalized && (
                       <span className="regime-flag" title="Yapısal düşüş: skor kısıldı">
                         ▽
@@ -315,9 +341,10 @@ export default function Matrix() {
               <th className="row-head">SİNYAL</th>
               {FLAT_INDICES.map(({ idx }) => {
                 const col = columnsByKey.get(idx.key);
+                const sc = col ? pickScore(col, scoreMode) : null;
                 return (
                   <td key={idx.key}>
-                    {col ? <span className={signalClass(col.score.signal)}>{col.score.signal}</span> : '—'}
+                    {sc ? <span className={signalClass(sc.signal)}>{sc.signal}</span> : '—'}
                   </td>
                 );
               })}
@@ -329,6 +356,7 @@ export default function Matrix() {
       {detailCol && columnsByKey.get(detailCol) && (
         <ScoreDetail
           col={columnsByKey.get(detailCol)!}
+          mode={scoreMode}
           onClose={() => setDetailCol(null)}
         />
       )}
@@ -349,6 +377,10 @@ export default function Matrix() {
           kısıldı
         </span>
         <span>SKOR'a dokun/tıkla → kriter kırılımı + kanaat % açılır.</span>
+        <span>
+          <strong>Odaklı</strong> = sınıfa özel anlamlı referanslar ·{' '}
+          <strong>Geniş</strong> = tüm satırlar eşit ağırlık.
+        </span>
       </div>
 
       {data && data.warnings.length > 0 && (
@@ -372,13 +404,21 @@ function naCell(): CellResult {
 }
 
 // Dokunmatik/mobil kırılım paneli — SKOR'a dokununca açılır.
-function ScoreDetail({ col, onClose }: { col: ColumnResult; onClose: () => void }) {
-  const s = col.score;
+function ScoreDetail({
+  col,
+  mode,
+  onClose,
+}: {
+  col: ColumnResult;
+  mode: ScoreMode;
+  onClose: () => void;
+}) {
+  const s = pickScore(col, mode);
   return (
     <div className="score-detail">
       <div className="sd-head">
         <strong>
-          {col.displayName} — SKOR {s.score}
+          {col.displayName} — {mode === 'broad' ? 'GENİŞ' : 'ODAKLI'} SKOR {s.score}
           {s.rawScore != null && s.rawScore !== s.score ? ` (ham ${s.rawScore})` : ''} ·{' '}
           <span className={signalClass(s.signal)}>{s.signal}</span>
         </strong>

@@ -115,6 +115,35 @@ function buildCriteria(ctx: ScoreContext): Criterion[] {
   }
 }
 
+// Birikmiş ağırlık/kanaat + rejim kapısından nihai ScoreResult üretir.
+function finalize(
+  symbol: string,
+  earned: number,
+  available: number,
+  breakdown: ScoreBreakdownItem[],
+  ctxRegime?: RegimeInfo
+): ScoreResult {
+  if (available === 0) {
+    const regime = ctxRegime ? { ...ctxRegime, applied: false } : undefined;
+    return { symbol, score: 0, signal: 'NÖTR', breakdown, regime };
+  }
+  const rawScore = Math.round((earned / available) * 100);
+
+  // İYİLEŞTİRME 2 — rejim kapısı: yapısal düşüşte (fiyat < yavaş SMA) skoru kıs.
+  let score = rawScore;
+  let regime: RegimeInfo | undefined;
+  if (ctxRegime && !ctxRegime.na) {
+    const applied = !ctxRegime.up;
+    if (applied) score = Math.round(rawScore * REGIME_PENALTY);
+    regime = { ...ctxRegime, applied };
+  } else if (ctxRegime) {
+    regime = { ...ctxRegime, applied: false };
+  }
+
+  return { symbol, score, rawScore, signal: signalFromScore(score), breakdown, regime };
+}
+
+// ODAKLI skor — sınıf için anlamlı referansların ağırlıklı alt kümesi (varsayılan).
 export function computeScore(ctx: ScoreContext): ScoreResult {
   const criteria = buildCriteria(ctx);
   const breakdown: ScoreBreakdownItem[] = [];
@@ -143,30 +172,36 @@ export function computeScore(ctx: ScoreContext): ScoreResult {
     });
   }
 
-  if (available === 0) {
-    const regime = ctx.regime ? { ...ctx.regime, applied: false } : undefined;
-    return { symbol: ctx.symbol, score: 0, signal: 'NÖTR', breakdown, regime };
-  }
+  return finalize(ctx.symbol, earned, available, breakdown, ctx.regime);
+}
 
-  const rawScore = Math.round((earned / available) * 100);
+// GENİŞ skor — matristeki TÜM referans satırları (+ kendi endeksi) eşit ağırlıkla,
+// kanaat-ortalaması. "Enstrüman tüm makro panele karşı ne kadar geniş ve güçlü
+// yükselişte" sorusunu yanıtlar. Anlamsız/eksik (na) satırlar atlanır.
+export function computeBroadScore(ctx: ScoreContext): ScoreResult {
+  const breakdown: ScoreBreakdownItem[] = [];
+  let earned = 0;
+  let available = 0;
 
-  // İYİLEŞTİRME 2 — rejim kapısı: yapısal düşüşte (fiyat < yavaş SMA) skoru kıs.
-  let score = rawScore;
-  let regime: RegimeInfo | undefined;
-  if (ctx.regime && !ctx.regime.na) {
-    const applied = !ctx.regime.up;
-    if (applied) score = Math.round(rawScore * REGIME_PENALTY);
-    regime = { ...ctx.regime, applied };
-  } else if (ctx.regime) {
-    regime = { ...ctx.regime, applied: false };
-  }
-
-  return {
-    symbol: ctx.symbol,
-    score,
-    rawScore,
-    signal: signalFromScore(score),
-    breakdown,
-    regime,
+  const add = (ref: string, cell: CellResult) => {
+    if (cell.na) {
+      breakdown.push({ ref, weight: 1, passed: false, na: true });
+      return;
+    }
+    const conviction = cell.conviction ?? convictionFromDelta(cell.deltaPct, ctx.timeframe);
+    earned += conviction;
+    available += 1;
+    breakdown.push({
+      ref,
+      weight: 1,
+      passed: cell.trendUp,
+      na: false,
+      conviction: Number(conviction.toFixed(2)),
+    });
   };
+
+  if (!ctx.ownIndexCell.na) add('Kendi Endeksi', ctx.ownIndexCell);
+  for (const [ref, cell] of Object.entries(ctx.cells)) add(ref, cell);
+
+  return finalize(ctx.symbol, earned, available, breakdown, ctx.regime);
 }

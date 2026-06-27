@@ -123,7 +123,8 @@ export interface ColumnResult {
   parentIndexKey: string;
   cells: Record<string, CellResult>; // referans symbol -> hücre
   ownIndexCell: CellResult; // enstrüman / parent endeks (§3.2)
-  score: ScoreResult;
+  score: ScoreResult; // ODAKLI skor (anlamlı referans alt kümesi)
+  scoreBroad: ScoreResult; // GENİŞ skor (tüm satırlar eşit ağırlık)
 }
 
 export interface MatrixResponse {
