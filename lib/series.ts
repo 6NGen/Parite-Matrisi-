@@ -121,11 +121,18 @@ export async function fetchIndexSeries(idx: IndexDef, timeframe: Timeframe): Pro
   const members = idx.constituents.filter((c) => !exclude.has(c.symbol));
 
   if (method === 'mcapSum') {
-    const series = await Promise.all(
-      members.map((c) =>
-        fetchLeaf({ apiSource: c.apiSource, apiSymbol: c.apiSymbol, coinField: 'mcap' }, timeframe)
-      )
-    );
+    // CoinGecko free API hız limiti (429) burst'lerde tetiklenir; coin'leri
+    // paralel değil SIRAYLA çek. Inflight dedupe sayesinde TOTAL/2/3 paylaşılan
+    // coin'leri tekrar çekmez.
+    const series: Candle[][] = [];
+    for (const c of members) {
+      series.push(
+        await fetchLeaf(
+          { apiSource: c.apiSource, apiSymbol: c.apiSymbol, coinField: 'mcap' },
+          timeframe
+        )
+      );
+    }
     return mcapSumSeries(series, timeframe);
   }
   // avg

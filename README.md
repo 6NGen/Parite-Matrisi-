@@ -45,9 +45,11 @@ lib/
 - **Forex:** rasyo değil **faiz makası** (baz 10Y − kotasyon 10Y) trendi — ayrı kod yolu.
 
 ### Sinyal kalitesi iyileştirmeleri
-1. **Dereceli skor:** Kriter katkısı ikili (geç/kal) değil; `delta%` büyüklüğünden türetilen
-   **kanaat [0–1]** ile ağırlıklanır (`convictionFromDelta`). Kıl payı kesişim ile güçlü
-   trend ayrışır → sahte 100'ler azalır. Tam kanaat eşiği: günlük %3, haftalık %6.
+1. **Dereceli + oynaklığa-göreli skor:** Kriter katkısı ikili (geç/kal) değil; **kanaat [0–1]**
+   ile ağırlıklanır. Kanaat, SMA boşluğunu (birikmiş sürüklenme) rasyonun **kendi getiri
+   oynaklığına** böler (z-skor benzeri sinyal/gürültü, `convictionFromRatio`). Böylece
+   yüksek-oynaklıklı varlık (BIST/kripto) büyük ama sıradan hareketlerde **doymaz**; sahte
+   100'ler önlenir. (Sabit-eşikli `convictionFromDelta` yedek olarak kalır.)
 2. **Uzun vadeli rejim kapısı:** Enstrümanın kendi fiyatı yavaş SMA'sının (günlük 200,
    haftalık 40) altındaysa (yapısal düşüş) skor `×0.6` ile kısılır (`regimeFromSeries`).
    UI'da `▽` işareti ve SKOR tooltip'inde gösterilir. Yapısal düşüşte kısa vadeli
@@ -111,6 +113,16 @@ Anahtarsız çalışır: Yahoo (anahtarsız), FRED (anahtarsız `fredgraph.csv`)
 > Kripto TOTAL ailesi, bileşen coin'lerin **piyasa değeri toplamından** türetilir
 > (TOTAL2 = BTC hariç, TOTAL3 = BTC+ETH hariç). TL sepeti ve emtia grup endeksleri
 > bileşenlerin normalize ortalamasıdır.
+
+## Bilinen veri sorunları
+- **TR10Y (FRED `IRLTLT01TRM156N`) artık 404 dönüyor** (OECD MEI serisi kaldırılmış).
+  Uygulama bunu zarifçe ele alır: TR10Y hücresi `—`, hisse makro kriteri otomatik US10Y'ye
+  düşer. Anahtarsız güvenilir bir Türkiye 10Y günlük kaynağı bulunana kadar bu geçici.
+- **Kripto TOTAL/2/3** CoinGecko free API hız limitine (HTTP 429) takılabilir; coin'ler artık
+  sırayla çekilir (burst azaltma) ve cache'lenir, ama yoğun anlarda bazı hücreler geçici `—`
+  olabilir — "Yenile" ile düzelir.
+- `^TNX` zaten yüzde geldiği için eski `÷10` ölçeği kaldırıldı (US10Y ve forex faiz makası
+  artık doğru birimde).
 
 ## Notlar / Bilinen sınırlar
 - BIST sektör endeksi bileşen listeleri (`catalog.ts`) temsilî bir alt kümedir; gerçek

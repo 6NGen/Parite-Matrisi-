@@ -123,10 +123,12 @@ export function computeScore(ctx: ScoreContext): ScoreResult {
 
   for (const c of criteria) {
     const na = c.na ?? (c.cell ? c.cell.na : c.pass === undefined);
-    // İYİLEŞTİRME 1 — dereceli katkı: ağırlık × kanaat (delta% büyüklüğü).
+    // İYİLEŞTİRME 1 — dereceli katkı: ağırlık × kanaat. Rasyo hücresi için
+    // oynaklığa-göreli kanaat (cell.conviction) tercih edilir; yoksa delta%'ye düşülür.
     const conviction = na
       ? 0
-      : c.conviction ?? (c.cell ? convictionFromDelta(c.cell.deltaPct, ctx.timeframe) : 0.5);
+      : c.conviction ??
+        (c.cell ? c.cell.conviction ?? convictionFromDelta(c.cell.deltaPct, ctx.timeframe) : 0.5);
     const passed = c.pass ?? (c.cell ? c.cell.trendUp : false);
     if (!na) {
       available += c.weight;

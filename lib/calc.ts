@@ -56,20 +56,56 @@ export function computeCell(
     deltaPct,
     trendUp: shortSma > longSma,
     na: false,
+    // İYİLEŞTİRME — oynaklığa-göreli kanaat: sabit % eşik yerine, SMA boşluğunu
+    // rasyonun KENDİ oynaklığına göre ölçer. Yüksek-oynaklıklı varlık (BIST/kripto)
+    // büyük ama sıradan hareketlerde doymaz; sahte 100'ler önlenir.
+    conviction: convictionFromRatio(ratio, shortSma, longSma, long),
   };
 }
 
-// İYİLEŞTİRME 1 — Dereceli skor: ikili geç/kal yerine delta% büyüklüğünden
-// türetilen kanaat [0,1]. delta=0 → 0.5 (nötr), delta≥FULL → 1.0, delta≤-FULL → 0.0.
-// Böylece "kıl payı kesişim" ile "güçlü trend" ayrışır; sahte 100'ler azalır.
+// Sabit-eşikli kanaat (yedek): delta% büyüklüğünden [0,1].
 function fullDelta(timeframe: Timeframe): number {
-  return timeframe === 'daily' ? 3 : 6; // tam kanaat eşiği (%)
+  return timeframe === 'daily' ? 3 : 6;
 }
 
 export function convictionFromDelta(deltaPct: number, timeframe: Timeframe): number {
   if (!Number.isFinite(deltaPct)) return 0.5;
   const norm = Math.max(-1, Math.min(1, deltaPct / fullDelta(timeframe)));
   return 0.5 + 0.5 * norm;
+}
+
+function stdev(values: number[]): number {
+  const n = values.length;
+  if (n < 2) return 0;
+  const mean = values.reduce((s, v) => s + v, 0) / n;
+  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1);
+  return Math.sqrt(variance);
+}
+
+// SMA boşluğunu (birikmiş sürüklenme) rasyonun dönemsel getiri oynaklığının
+// horizon boyunca beklenen rastgele birikimine (vol·√long) böler — z-skor benzeri
+// sinyal/gürültü. tanh ile [0,1]'e yumuşatılır. Yüksek oynaklık → daha büyük
+// boşluk gerekir; böylece "büyük ama varlığı için normal" hareketler doymaz.
+function convictionFromRatio(
+  ratio: number[],
+  shortSma: number,
+  longSma: number,
+  long: number
+): number {
+  if (longSma === 0) return 0.5;
+  const gap = shortSma / longSma - 1; // işaretli birikmiş sürüklenme
+  const window = ratio.slice(-long);
+  const returns: number[] = [];
+  for (let i = 1; i < window.length; i++) {
+    const prev = window[i - 1];
+    if (prev !== 0 && Number.isFinite(prev) && Number.isFinite(window[i])) {
+      returns.push(window[i] / prev - 1);
+    }
+  }
+  const vol = stdev(returns);
+  const noise = vol * Math.sqrt(long);
+  const strength = noise > 1e-9 ? gap / noise : Math.sign(gap) * 2;
+  return Math.max(0, Math.min(1, 0.5 + 0.5 * Math.tanh(strength)));
 }
 
 /** Bir farkın (forex faiz makası) büyüklüğünden kanaat (FULL = 0.5 puan ≈ 50bps). */

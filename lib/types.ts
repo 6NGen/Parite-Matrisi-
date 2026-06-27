@@ -70,6 +70,7 @@ export interface CellResult {
   deltaPct: number; // (shortSMA/longSMA - 1) * 100
   trendUp: boolean;
   na: boolean;
+  conviction?: number; // 0–1, oynaklığa-göreli kanaat (z-skor benzeri); skorlamada kullanılır
 }
 
 export type Signal =
