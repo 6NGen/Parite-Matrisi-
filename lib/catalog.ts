@@ -227,6 +227,10 @@ const XBANK: IndexDef = stockIndex('XBANK', 'XBANK (Banka)', [
   stock('YKBNK', 'XBANK'),
   stock('ISCTR', 'XBANK'),
   stock('VAKBN', 'XBANK'),
+  stock('HALKB', 'XBANK'),
+  stock('TSKB', 'XBANK'),
+  stock('ALBRK', 'XBANK'),
+  stock('SKBNK', 'XBANK'),
 ]);
 
 const XELKT: IndexDef = stockIndex('XELKT', 'XELKT (Elektrik)', [
@@ -235,6 +239,10 @@ const XELKT: IndexDef = stockIndex('XELKT', 'XELKT (Elektrik)', [
   stock('ZOREN', 'XELKT'),
   stock('AYDEM', 'XELKT'),
   stock('ENJSA', 'XELKT'),
+  stock('ODAS', 'XELKT'),
+  stock('AKENR', 'XELKT'),
+  stock('BIOEN', 'XELKT'),
+  stock('GWIND', 'XELKT'),
 ]);
 
 const XUTEK: IndexDef = stockIndex('XUTEK', 'XUTEK (Teknoloji)', [

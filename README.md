@@ -115,6 +115,11 @@ Anahtarsız çalışır: Yahoo (anahtarsız), FRED (anahtarsız `fredgraph.csv`)
 > bileşenlerin normalize ortalamasıdır.
 
 ## Bilinen veri sorunları
+- **BIST sektör endeksleri Yahoo'da `XELKT.IS` vb. ile veri döndürmüyor.** Çözüm: stock
+  endeksleri gerçek sembolü deneyip başarısız olursa **bileşen hisselerinden normalize
+  ortalamayla** türetir (`syntheticFromConstituents`). Bireysel `.IS` hisseleri çalıştığından
+  sektör kriteri (enstrüman / sektör endeksi) artık garantili hesaplanır. Vekilin kalitesi
+  bileşen listesinin genişliğine bağlıdır; listeler temsilîdir, resmi tam üyelikle güncellenebilir.
 - **TR10Y (FRED `IRLTLT01TRM156N`) artık 404 dönüyor** (OECD MEI serisi kaldırılmış).
   Uygulama bunu zarifçe ele alır: TR10Y hücresi `—`, hisse makro kriteri otomatik US10Y'ye
   düşer. Anahtarsız güvenilir bir Türkiye 10Y günlük kaynağı bulunana kadar bu geçici.
