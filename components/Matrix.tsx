@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CATEGORIES } from '@/lib/catalog';
+import News from '@/components/News';
 import type {
   CellResult,
   ColumnResult,
@@ -58,6 +59,27 @@ function signalClass(sig: Signal): string {
     default:
       return 'sig neutral';
   }
+}
+
+// SKOR hücresi için kırılım + rejim açıklaması (hover tooltip).
+function scoreTitle(col: ColumnResult): string {
+  const s = col.score;
+  const lines = s.breakdown.map((b) => {
+    if (b.na) return `${b.ref}: — (veri yok, skora katılmadı)`;
+    const conv = b.conviction != null ? ` · kanaat ${(b.conviction * 100).toFixed(0)}%` : '';
+    return `${b.ref}: ${b.passed ? '✓' : '✗'} ağırlık ${b.weight}${conv}`;
+  });
+  if (s.rawScore != null && s.rawScore !== s.score) {
+    lines.push(`Ham skor: ${s.rawScore} → rejim kapısı sonrası: ${s.score}`);
+  }
+  if (s.regime && !s.regime.na) {
+    lines.push(
+      `Rejim: fiyat uzun SMA'nın ${s.regime.up ? 'ÜSTÜNDE' : 'ALTINDA'} ` +
+        `(${s.regime.deltaPct >= 0 ? '+' : ''}${s.regime.deltaPct.toFixed(1)}%)` +
+        (s.regime.applied ? ' — yapısal düşüş cezası uygulandı' : '')
+    );
+  }
+  return lines.join('\n');
 }
 
 function CellView({ cell, mode }: { cell: CellResult; mode: ViewMode }) {
@@ -129,6 +151,12 @@ export default function Matrix() {
   }, [data]);
 
   const references = data?.references ?? [];
+
+  // Haber paneli için seçili enstrümanlar (endeksin kendisi seçiliyse hariç).
+  const selectedSymbols = useMemo(
+    () => Object.values(selections).filter((v): v is string => Boolean(v)),
+    [selections]
+  );
 
   return (
     <div className="app">
@@ -263,9 +291,15 @@ export default function Matrix() {
               <th className="row-head">SKOR</th>
               {FLAT_INDICES.map(({ idx }) => {
                 const col = columnsByKey.get(idx.key);
+                const penalized = col?.score.regime?.applied ?? false;
                 return (
-                  <td key={idx.key}>
+                  <td key={idx.key} title={col ? scoreTitle(col) : undefined}>
                     <span className="num score-val">{col ? col.score.score : '—'}</span>
+                    {penalized && (
+                      <span className="regime-flag" title="Yapısal düşüş: skor kısıldı">
+                        ▽
+                      </span>
+                    )}
                   </td>
                 );
               })}
@@ -296,6 +330,11 @@ export default function Matrix() {
         </span>
         <span>Renk yoğunluğu |Δ%| ile orantılı.</span>
         <span>SMA: {timeframe === 'daily' ? 'SMA20/SMA50 (günlük)' : 'SMA10/SMA30 (haftalık)'}</span>
+        <span>
+          <span className="regime-flag">▽</span> = yapısal düşüş (fiyat uzun SMA altında), skor
+          kısıldı
+        </span>
+        <span>SKOR üzerine gelince kriter kırılımı + kanaat % görünür.</span>
       </div>
 
       {data && data.warnings.length > 0 && (
@@ -308,6 +347,8 @@ export default function Matrix() {
           </ul>
         </div>
       )}
+
+      <News symbols={selectedSymbols} />
     </div>
   );
 }

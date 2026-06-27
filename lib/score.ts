@@ -5,23 +5,32 @@
 import type {
   AssetClass,
   CellResult,
+  RegimeInfo,
   ScoreBreakdownItem,
   ScoreResult,
   Signal,
+  Timeframe,
 } from './types';
+import { convictionFromDelta, convictionFromSpread } from './calc';
+
+// Yapısal düşüş rejiminde skora uygulanan çarpan (İYİLEŞTİRME 2).
+const REGIME_PENALTY = 0.6;
 
 export interface ScoreContext {
   symbol: string;
   assetClass: AssetClass;
   isIndex: boolean;
+  timeframe: Timeframe;
   cells: Record<string, CellResult>; // 11 makro satır
   ownIndexCell: CellResult; // enstrüman / sektör (parent) endeksi
   bankCell?: CellResult; // enstrüman / XBANK (faizsiz finansman bayrağı)
   useBankRef?: boolean;
   /** Forex faiz makası sonucu (rasyo değil fark yolu). */
-  forexTrend?: { trendUp: boolean; na: boolean };
+  forexTrend?: { trendUp: boolean; na: boolean; deltaAbs?: number };
   /** Emtia alt-türü ipucu. */
   commodityKind?: 'gold' | 'silver' | 'generic';
+  /** Enstrümanın kendi fiyatının uzun vadeli rejimi (kapı). */
+  regime?: RegimeInfo;
 }
 
 interface Criterion {
@@ -30,6 +39,7 @@ interface Criterion {
   cell?: CellResult; // rasyo tabanlı kriter
   pass?: boolean; // doğrudan sonuç (forex)
   na?: boolean;
+  conviction?: number; // doğrudan kanaat (forex için)
 }
 
 export function signalFromScore(score: number): Signal {
@@ -47,8 +57,17 @@ function pick(cells: Record<string, CellResult>, key: string): CellResult | unde
 function buildCriteria(ctx: ScoreContext): Criterion[] {
   switch (ctx.assetClass) {
     case 'stock': {
-      const macroRef = ctx.useBankRef ? 'XBANK' : 'US10Y';
-      const macroCell = ctx.useBankRef ? ctx.bankCell : pick(ctx.cells, 'US10Y');
+      // İYİLEŞTİRME 4 — BIST hisseleri için makro baskı referansı TR10Y
+      // (Türk varlığına daha doğrudan); TR10Y yoksa US10Y'ye düş.
+      // Faizsiz finansman bayraklı hisseler (KTLEV) yine /XBANK kullanır.
+      const tr = pick(ctx.cells, 'TR10Y');
+      const trUsable = tr && !tr.na;
+      const macroRef = ctx.useBankRef ? 'XBANK' : trUsable ? 'TR10Y' : 'US10Y';
+      const macroCell = ctx.useBankRef
+        ? ctx.bankCell
+        : trUsable
+          ? tr
+          : pick(ctx.cells, 'US10Y');
       return [
         { ref: 'USDTRY', weight: 40, cell: pick(ctx.cells, 'USDTRY') },
         { ref: 'Sektör Endeksi', weight: 40, cell: ctx.ownIndexCell },
@@ -85,7 +104,11 @@ function buildCriteria(ctx: ScoreContext): Criterion[] {
     }
     case 'forex': {
       const t = ctx.forexTrend;
-      return [{ ref: 'Faiz Makası', weight: 100, pass: t?.trendUp, na: t?.na ?? true }];
+      const na = t?.na ?? true;
+      const conviction = na
+        ? undefined
+        : convictionFromSpread(t?.deltaAbs ?? (t?.trendUp ? 0.5 : -0.5));
+      return [{ ref: 'Faiz Makası', weight: 100, pass: t?.trendUp, na, conviction }];
     }
     default:
       return [];
@@ -100,17 +123,48 @@ export function computeScore(ctx: ScoreContext): ScoreResult {
 
   for (const c of criteria) {
     const na = c.na ?? (c.cell ? c.cell.na : c.pass === undefined);
+    // İYİLEŞTİRME 1 — dereceli katkı: ağırlık × kanaat (delta% büyüklüğü).
+    const conviction = na
+      ? 0
+      : c.conviction ?? (c.cell ? convictionFromDelta(c.cell.deltaPct, ctx.timeframe) : 0.5);
     const passed = c.pass ?? (c.cell ? c.cell.trendUp : false);
     if (!na) {
       available += c.weight;
-      if (passed) earned += c.weight;
+      earned += c.weight * conviction;
     }
-    breakdown.push({ ref: c.ref, weight: c.weight, passed: !na && passed, na });
+    breakdown.push({
+      ref: c.ref,
+      weight: c.weight,
+      passed: !na && passed,
+      na,
+      conviction: na ? undefined : Number(conviction.toFixed(2)),
+    });
   }
 
   if (available === 0) {
-    return { symbol: ctx.symbol, score: 0, signal: 'NÖTR', breakdown };
+    const regime = ctx.regime ? { ...ctx.regime, applied: false } : undefined;
+    return { symbol: ctx.symbol, score: 0, signal: 'NÖTR', breakdown, regime };
   }
-  const score = Math.round((earned / available) * 100);
-  return { symbol: ctx.symbol, score, signal: signalFromScore(score), breakdown };
+
+  const rawScore = Math.round((earned / available) * 100);
+
+  // İYİLEŞTİRME 2 — rejim kapısı: yapısal düşüşte (fiyat < yavaş SMA) skoru kıs.
+  let score = rawScore;
+  let regime: RegimeInfo | undefined;
+  if (ctx.regime && !ctx.regime.na) {
+    const applied = !ctx.regime.up;
+    if (applied) score = Math.round(rawScore * REGIME_PENALTY);
+    regime = { ...ctx.regime, applied };
+  } else if (ctx.regime) {
+    regime = { ...ctx.regime, applied: false };
+  }
+
+  return {
+    symbol: ctx.symbol,
+    score,
+    rawScore,
+    signal: signalFromScore(score),
+    breakdown,
+    regime,
+  };
 }

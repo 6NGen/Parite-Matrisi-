@@ -1,7 +1,7 @@
 // Hesap çekirdeği (§3): rasyo serisi → SMA kesişimi → CellResult.
 // Prototipteki iki-noktalı yüzde değişimi yerine rasyonun SMA kesişimi kullanılır.
 
-import type { Candle, CellResult, Timeframe } from './types';
+import type { Candle, CellResult, RegimeInfo, Timeframe } from './types';
 import { alignPair } from './align';
 
 export interface SmaWindows {
@@ -57,6 +57,45 @@ export function computeCell(
     trendUp: shortSma > longSma,
     na: false,
   };
+}
+
+// İYİLEŞTİRME 1 — Dereceli skor: ikili geç/kal yerine delta% büyüklüğünden
+// türetilen kanaat [0,1]. delta=0 → 0.5 (nötr), delta≥FULL → 1.0, delta≤-FULL → 0.0.
+// Böylece "kıl payı kesişim" ile "güçlü trend" ayrışır; sahte 100'ler azalır.
+function fullDelta(timeframe: Timeframe): number {
+  return timeframe === 'daily' ? 3 : 6; // tam kanaat eşiği (%)
+}
+
+export function convictionFromDelta(deltaPct: number, timeframe: Timeframe): number {
+  if (!Number.isFinite(deltaPct)) return 0.5;
+  const norm = Math.max(-1, Math.min(1, deltaPct / fullDelta(timeframe)));
+  return 0.5 + 0.5 * norm;
+}
+
+/** Bir farkın (forex faiz makası) büyüklüğünden kanaat (FULL = 0.5 puan ≈ 50bps). */
+export function convictionFromSpread(deltaAbs: number): number {
+  if (!Number.isFinite(deltaAbs)) return 0.5;
+  const norm = Math.max(-1, Math.min(1, deltaAbs / 0.5));
+  return 0.5 + 0.5 * norm;
+}
+
+// İYİLEŞTİRME 2 — Uzun vadeli rejim kapısı: enstrümanın KENDİ fiyatının yavaş
+// SMA'sına (günlük 200 · haftalık 40) göre yapısal yön. Yapısal düşüşteyken
+// kısa vadeli zıplamanın "GÜÇLÜ AL" üretmesini engellemek için kullanılır.
+export function regimeWindow(timeframe: Timeframe): number {
+  return timeframe === 'daily' ? 200 : 40;
+}
+
+export function regimeFromSeries(series: Candle[], timeframe: Timeframe): RegimeInfo {
+  const n = regimeWindow(timeframe);
+  const closes = series.map((c) => c.close).filter((v) => Number.isFinite(v));
+  const sma = smaLast(closes, n);
+  if (sma == null || sma === 0 || closes.length === 0) {
+    return { up: false, deltaPct: 0, na: true, applied: false };
+  }
+  const last = closes[closes.length - 1];
+  const deltaPct = (last / sma - 1) * 100;
+  return { up: last >= sma, deltaPct, na: false, applied: false };
 }
 
 /** Bir farkın (forex faiz makası) trendini hesaplar — rasyo değil fark yolu (§5.2). */
