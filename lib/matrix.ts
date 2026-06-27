@@ -15,7 +15,7 @@ import type {
 import { ALL_INDICES, REFERENCES, FX_YIELDS, getIndex } from './catalog';
 import { fetchLeaf, fetchIndexSeries, instrumentSpec, refSpec } from './series';
 import { computeCell, computeSpreadTrend, regimeFromSeries } from './calc';
-import { computeScore, type ScoreContext } from './score';
+import { computeScore, computeBroadScore, type ScoreContext } from './score';
 
 const NA_CELL: CellResult = { ratioNow: NaN, deltaPct: 0, trendUp: false, na: true };
 
@@ -128,6 +128,7 @@ async function buildColumn(
     cells,
     ownIndexCell,
     score: score.result,
+    scoreBroad: score.broad,
   };
 }
 
@@ -170,7 +171,7 @@ async function buildScore(
     ctx.forexTrend = await forexSpreadTrend(fx, timeframe, safe);
   }
 
-  return { result: computeScore(ctx) };
+  return { result: computeScore(ctx), broad: computeBroadScore(ctx) };
 }
 
 function commodityKind(idx: IndexDef, instrument?: Instrument): 'gold' | 'silver' | 'generic' {

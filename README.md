@@ -57,8 +57,14 @@ lib/
 3. **Hisse makro referansı TR10Y:** BIST hisseleri için makro baskı kriteri (20 puan)
    US10Y yerine **TR10Y** (Türk varlığına daha doğrudan); TR10Y verisi yoksa US10Y'ye düşer.
 
-SKOR hücresinin üzerine gelince kriter kırılımı, her kriterin kanaat yüzdesi, ham skor ve
-rejim durumu tooltip olarak görünür.
+SKOR hücresinin üzerine gelince (veya dokununca) kriter kırılımı, her kriterin kanaat yüzdesi,
+ham skor ve rejim durumu görünür.
+
+### Skorlama modu: Odaklı / Geniş
+İki skorlama modu sunulur (üstteki toggle); ikisi de aynı veriden hesaplanır, anlık geçiş yapılır:
+- **Odaklı (varsayılan):** Sınıf için **anlamlı** referansların ağırlıklı alt kümesi (§5.2). Disiplinli sinyal.
+- **Geniş:** Matristeki **tüm** referans satırları (+ kendi endeksi) **eşit ağırlıkla**, kanaat-ortalaması.
+  "Enstrüman tüm makro panele karşı ne kadar geniş ve güçlü yükselişte" sorusuna yanıt. Eksik (na) satırlar atlanır.
 
 ## Skorlama ağırlıkları (§5.2)
 | Sınıf | Kriterler |
