@@ -13,6 +13,10 @@ import type {
   Timeframe,
 } from '@/lib/types';
 
+// Deploy doğrulama etiketi — yeni bir sürüm yayına girince bu metin değişir.
+// Böylece "yeni kod canlı mı" sayfanın altından tek bakışta anlaşılır.
+const APP_VERSION = 'sürüm 7 · sektör vekili + Odaklı/Geniş skor';
+
 type ViewMode = 'value' | 'change' | 'heat';
 type ScoreMode = 'focused' | 'broad';
 
@@ -380,6 +384,9 @@ export default function Matrix() {
         <span>
           <strong>Odaklı</strong> = sınıfa özel anlamlı referanslar ·{' '}
           <strong>Geniş</strong> = tüm satırlar eşit ağırlık.
+        </span>
+        <span style={{ marginLeft: 'auto', color: 'var(--accent)', fontWeight: 600 }}>
+          {APP_VERSION}
         </span>
       </div>
 
