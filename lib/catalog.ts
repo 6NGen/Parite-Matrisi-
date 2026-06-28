@@ -56,15 +56,20 @@ export const REFERENCES: ReferenceRow[] = [
   // Reel faiz (ABD 10Y TIPS) — yalnızca ek gösterge satırı; skora dahil edilmez.
   // Altının fırsat maliyetini enflasyondan arındırılmış olarak okumak için panoramaya eklenir.
   { symbol: 'US10YR', displayName: 'ABD Reel Faiz (10Y TIPS)', kind: 'rate', apiSource: 'fred', apiSymbol: 'DFII10' },
-  // Türkiye 10Y: FRED OECD serisi (IRLTLT01TRM156N) artık 404. Birincil olarak
-  // Stooq (anahtarsız, günlük tahvil getirisi), yedek olarak FRED denenir.
+  // Türkiye faizi: Stooq Vercel IP'sini blokluyor; FRED ise çalışıyor. FRED'in
+  // canlı Türkiye faiz serileri sırayla denenir (devlet tahvili → hazine bonosu
+  // → interbank → eski OECD). İlk veri döndüren kazanır; hiçbiri yoksa US10Y'ye düşülür.
   {
     symbol: 'TR10Y',
-    displayName: 'TR 10Y',
+    displayName: 'TR Faiz',
     kind: 'rate',
-    apiSource: 'stooq',
-    apiSymbol: '10try.b',
-    alternates: [{ apiSource: 'fred', apiSymbol: 'IRLTLT01TRM156N' }],
+    apiSource: 'fred',
+    apiSymbol: 'INTGSBTRM193N',
+    alternates: [
+      { apiSource: 'fred', apiSymbol: 'INTGSTTRM193N' },
+      { apiSource: 'fred', apiSymbol: 'IR3TIB01TRM156N' },
+      { apiSource: 'fred', apiSymbol: 'IRLTLT01TRM156N' },
+    ],
   },
   { symbol: 'DXY', displayName: 'Dolar Endeksi', kind: 'price', apiSource: 'yahoo', apiSymbol: 'DX-Y.NYB' },
   { symbol: 'M2SL', displayName: 'ABD M2', kind: 'money', apiSource: 'fred', apiSymbol: 'M2SL' },
@@ -82,7 +87,7 @@ export const REFERENCES: ReferenceRow[] = [
 
 export const FX_YIELDS: Record<string, { apiSource: 'fred' | 'yahoo' | 'stooq'; apiSymbol: string; scale?: number }> = {
   USD: { apiSource: 'yahoo', apiSymbol: '^TNX' },
-  TRY: { apiSource: 'stooq', apiSymbol: '10try.b' },
+  TRY: { apiSource: 'fred', apiSymbol: 'INTGSBTRM193N' },
   EUR: { apiSource: 'fred', apiSymbol: 'IRLTLT01EZM156N' },
   GBP: { apiSource: 'fred', apiSymbol: 'IRLTLT01GBM156N' },
   JPY: { apiSource: 'fred', apiSymbol: 'IRLTLT01JPM156N' },

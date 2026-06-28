@@ -15,12 +15,14 @@ interface Probe {
   symbol: string;
 }
 
+// Stooq Vercel IP'sini blokluyor (teşhisle doğrulandı). FRED Vercel'den çalışıyor,
+// bu yüzden FRED'in canlı Türkiye faiz serilerini probe ediyoruz.
 const PROBES: Probe[] = [
-  { source: 'stooq', symbol: '10try.b' },
-  { source: 'stooq', symbol: '10tyy.b' },
-  { source: 'stooq', symbol: '10tury.b' },
-  { source: 'stooq', symbol: '10usy.b' }, // ABD 10Y — Stooq Vercel'den erişilebilir mi kontrolü
-  { source: 'fred', symbol: 'IRLTLT01TRM156N' },
+  { source: 'fred', symbol: 'DGS10' }, // ABD 10Y (kesin canlı) — FRED erişim kontrolü
+  { source: 'fred', symbol: 'INTGSBTRM193N' }, // TR devlet tahvili getirisi (IMF IFS)
+  { source: 'fred', symbol: 'INTGSTTRM193N' }, // TR hazine bonosu
+  { source: 'fred', symbol: 'IR3TIB01TRM156N' }, // TR 3 aylık interbank
+  { source: 'fred', symbol: 'IRLTLT01TRM156N' }, // eski OECD (muhtemelen ölü)
 ];
 
 export async function GET(): Promise<NextResponse> {
