@@ -136,9 +136,17 @@ Anahtarsız çalışır: Yahoo (anahtarsız), FRED (anahtarsız `fredgraph.csv`)
   olabilir; bu durumda ilgili forex sütunlarının skoru sessizce NÖTR/NA olur (uyarı üretmez).
 - **Kripto TOTAL/2/3** CoinGecko free API hız limitine (HTTP 429) takılabilir; coin'ler artık
   sırayla çekilir (burst azaltma) ve cache'lenir, ama yoğun anlarda bazı hücreler geçici `—`
-  olabilir — "Yenile" ile düzelir.
+  olabilir — "Yenile" ile düzelir. Serinin **mertebesi** CoinGecko `/global` (anlık) ile gerçek
+  küresel piyasa değerine sabitlenir; ama free API geçmiş global değer vermediğinden **geçmiş
+  şekil** yine bileşen sepetinden gelen bir yaklaşımdır (sabit ölçek → skor/trend değişmez).
+- **Düşük frekanslı paydalar (WALCL/M2SL):** Haftalık/aylık yayınlanır; günlük vadede 20/50 günde
+  neredeyse sabit kalırlar. Günlük vadede ilgili kriterler `⚠ düşük frekans` rozetiyle işaretlenir;
+  kripto likidite kriteri için Haftalık vade önerilir.
 - `^TNX` zaten yüzde geldiği için eski `÷10` ölçeği kaldırıldı (US10Y ve forex faiz makası
   artık doğru birimde).
+- **Backtest:** `/api/backtest?symbol=...&timeframe=...` sinyalin ileri rölatif getiriyle
+  ilişkisini point-in-time ölçer (kova ortalamaları, monotonluk, Spearman). Survivorship sınırı:
+  statik sektör üyeliği kullanılır.
 
 ## Notlar / Bilinen sınırlar
 - BIST sektör endeksi bileşen listeleri (`catalog.ts`) temsilî bir alt kümedir; gerçek
