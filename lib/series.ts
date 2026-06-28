@@ -7,7 +7,6 @@ import { getCached, setCached } from './cache';
 import { fetchYahoo } from './sources/yahoo';
 import { fetchFred } from './sources/fred';
 import { fetchCoinGecko, type CoinField } from './sources/coingecko';
-import { fetchStooq } from './sources/stooq';
 import { commonCalendar, resampleToCalendar } from './align';
 import { smaWindows } from './calc';
 
@@ -52,9 +51,6 @@ async function doFetchLeaf(spec: LeafSpec, sym: string, timeframe: Timeframe): P
       break;
     case 'coingecko':
       candles = await fetchCoinGecko(spec.apiSymbol, timeframe, spec.coinField ?? 'price');
-      break;
-    case 'stooq':
-      candles = await fetchStooq(spec.apiSymbol, timeframe);
       break;
     default:
       throw new Error(`Bilinmeyen leaf kaynağı: ${spec.apiSource}`);

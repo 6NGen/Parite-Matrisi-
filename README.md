@@ -126,10 +126,14 @@ Anahtarsız çalışır: Yahoo (anahtarsız), FRED (anahtarsız `fredgraph.csv`)
   ortalamayla** türetir (`syntheticFromConstituents`). Bireysel `.IS` hisseleri çalıştığından
   sektör kriteri (enstrüman / sektör endeksi) artık garantili hesaplanır. Vekilin kalitesi
   bileşen listesinin genişliğine bağlıdır; listeler temsilîdir, resmi tam üyelikle güncellenebilir.
-- **TR10Y:** FRED OECD serisi (`IRLTLT01TRM156N`) 404 döndüğü için birincil kaynak **Stooq**
-  (`10try.b`, anahtarsız günlük tahvil getirisi), yedek FRED. Referanslar çoklu-kaynak destekler:
-  birincil veri vermezse `alternates` sırayla denenir (`fetchReference`). Hiçbiri çalışmazsa
-  TR10Y hücresi `—` ve hisse makro kriteri yine US10Y'ye düşer.
+- **TR Faiz:** Anahtarsız, güncel ve sunucudan erişilebilir bir Türkiye 10Y kaynağı **yok**
+  (kapsamlı teşhisle doğrulandı: Stooq sunucu IP'sini blokluyor; FRED'in TR serileri 404 ya da
+  2008'de donmuş; TradingView'in anahtarsız geçmiş API'si yok; Yahoo'da TR 10Y yok). Bu yüzden
+  TR Faiz satırı `optional` işaretli — sessizce `—` gösterilir (uyarı üretmez) ve hisse makro
+  kriteri (20 puan) **US10Y**'ye düşer. Güncel TR faizi istenirse tek güvenilir yol **TCMB EVDS**
+  (anahtarlı): `EVDS_API_KEY` env değişkeni + bir EVDS kaynağı eklenerek bağlanabilir.
+- **Forex faiz makası:** Majör 10Y getirileri için kullanılan OECD serileri de kısmen ölü
+  olabilir; bu durumda ilgili forex sütunlarının skoru sessizce NÖTR/NA olur (uyarı üretmez).
 - **Kripto TOTAL/2/3** CoinGecko free API hız limitine (HTTP 429) takılabilir; coin'ler artık
   sırayla çekilir (burst azaltma) ve cache'lenir, ama yoğun anlarda bazı hücreler geçici `—`
   olabilir — "Yenile" ile düzelir.

@@ -2,7 +2,7 @@
 
 export type AssetClass = 'forex' | 'crypto' | 'commodity' | 'stock';
 export type Timeframe = 'daily' | 'weekly';
-export type ApiSource = 'yahoo' | 'fred' | 'coingecko' | 'stooq' | 'synthetic';
+export type ApiSource = 'yahoo' | 'fred' | 'coingecko' | 'synthetic';
 
 /** Bir referans/enstrüman serisinin yorumlanma biçimi. */
 export type SeriesKind = 'price' | 'rate' | 'money';
@@ -63,9 +63,12 @@ export interface ReferenceRow {
   apiSource: ApiSource;
   apiSymbol: string;
   scale?: number;
-  // Birincil kaynak başarısız olursa sırayla denenecek alternatif kaynaklar
-  // (ör. TR10Y: FRED ölü → Stooq). İlk veri döndüren kazanır.
+  // Birincil kaynak başarısız olursa sırayla denenecek alternatif kaynaklar.
+  // İlk veri döndüren kazanır.
   alternates?: { apiSource: ApiSource; apiSymbol: string; scale?: number }[];
+  // Veri kaynağının bulunmaması beklenen referans (ör. anahtarsız güncel TR faizi
+  // yok). Başarısızlıkta uyarı üretilmez; hücre sessizce "—" olur.
+  optional?: boolean;
 }
 
 export interface CellResult {

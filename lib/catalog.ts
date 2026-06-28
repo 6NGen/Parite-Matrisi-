@@ -63,10 +63,11 @@ export const REFERENCES: ReferenceRow[] = [
   // Güncel TR faizi için tek güvenilir yol TCMB EVDS (anahtarlı); env ile bağlanabilir.
   {
     symbol: 'TR10Y',
-    displayName: 'TR Faiz',
+    displayName: 'TR Faiz (kaynak yok)',
     kind: 'rate',
     apiSource: 'fred',
     apiSymbol: 'IRLTLT01TRM156N',
+    optional: true, // anahtarsız güncel kaynak yok → sessizce "—", uyarı üretme
   },
   { symbol: 'DXY', displayName: 'Dolar Endeksi', kind: 'price', apiSource: 'yahoo', apiSymbol: 'DX-Y.NYB' },
   { symbol: 'M2SL', displayName: 'ABD M2', kind: 'money', apiSource: 'fred', apiSymbol: 'M2SL' },
@@ -82,7 +83,7 @@ export const REFERENCES: ReferenceRow[] = [
 // FOREX faiz makası için ülke/para 10Y getiri kaynakları (§5.2 forex).
 // ----------------------------------------------------------------------------
 
-export const FX_YIELDS: Record<string, { apiSource: 'fred' | 'yahoo' | 'stooq'; apiSymbol: string; scale?: number }> = {
+export const FX_YIELDS: Record<string, { apiSource: 'fred' | 'yahoo'; apiSymbol: string; scale?: number }> = {
   USD: { apiSource: 'yahoo', apiSymbol: '^TNX' },
   TRY: { apiSource: 'fred', apiSymbol: 'IRLTLT01TRM156N' },
   EUR: { apiSource: 'fred', apiSymbol: 'IRLTLT01EZM156N' },
