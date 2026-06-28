@@ -33,18 +33,19 @@ export function computeCell(
   reference: Candle[],
   timeframe: Timeframe
 ): CellResult {
-  const { calendar, a, b } = alignPair(instrument, reference, timeframe);
+  const { a, b } = alignPair(instrument, reference, timeframe);
   const { short, long } = smaWindows(timeframe);
-  if (calendar.length < long) return NA;
 
-  const ratio: number[] = new Array(a.length);
+  // GÖREV 6 — noktasal temizlik: tek bozuk bar (0/NaN payda veya NaN pay) tüm
+  // hücreyi düşürmesin; o barı atla. Yalnızca geçerli nokta sayısı uzun pencerenin
+  // altına düşerse NA.
+  const ratio: number[] = [];
   for (let i = 0; i < a.length; i++) {
     const denom = b[i];
-    if (!Number.isFinite(denom) || denom === 0 || !Number.isFinite(a[i])) {
-      return NA; // NaN/0 bölme koruması (§11)
-    }
-    ratio[i] = a[i] / denom;
+    if (!Number.isFinite(denom) || denom === 0 || !Number.isFinite(a[i])) continue;
+    ratio.push(a[i] / denom);
   }
+  if (ratio.length < long) return NA;
 
   const shortSma = smaLast(ratio, short);
   const longSma = smaLast(ratio, long);
@@ -56,10 +57,8 @@ export function computeCell(
     deltaPct,
     trendUp: shortSma > longSma,
     na: false,
-    // İYİLEŞTİRME — oynaklığa-göreli kanaat: sabit % eşik yerine, SMA boşluğunu
-    // rasyonun KENDİ oynaklığına göre ölçer. Yüksek-oynaklıklı varlık (BIST/kripto)
-    // büyük ama sıradan hareketlerde doymaz; sahte 100'ler önlenir.
-    conviction: convictionFromRatio(ratio, shortSma, longSma, long),
+    // Oynaklığa-göreli kanaat: SMA boşluğunu rasyonun KENDİ oynaklığına göre ölçer.
+    conviction: convictionFromRatio(ratio, shortSma, longSma, long, timeframe),
   };
 }
 
@@ -82,6 +81,16 @@ function stdev(values: number[]): number {
   return Math.sqrt(variance);
 }
 
+// GÖREV 2 — Kanaat gürültü tabanı. Dönemsel getiri oynaklığı için ekonomik anlamlı
+// bir minimum (floor). Aksi halde neredeyse düz / floating-point titreşimli rasyoda
+// vol→0 olunca strength patlar ve kanaat sahte biçimde ~1'e doyar.
+const MIN_PERIODIC_VOL_DAILY = 0.0015; // ~%0.15 günlük
+const MIN_PERIODIC_VOL_WEEKLY = 0.004; // ~%0.4 haftalık
+
+function minPeriodicVol(timeframe: Timeframe): number {
+  return timeframe === 'daily' ? MIN_PERIODIC_VOL_DAILY : MIN_PERIODIC_VOL_WEEKLY;
+}
+
 // SMA boşluğunu (birikmiş sürüklenme) rasyonun dönemsel getiri oynaklığının
 // horizon boyunca beklenen rastgele birikimine (vol·√long) böler — z-skor benzeri
 // sinyal/gürültü. tanh ile [0,1]'e yumuşatılır. Yüksek oynaklık → daha büyük
@@ -90,10 +99,10 @@ function convictionFromRatio(
   ratio: number[],
   shortSma: number,
   longSma: number,
-  long: number
+  long: number,
+  timeframe: Timeframe
 ): number {
   if (longSma === 0) return 0.5;
-  const gap = shortSma / longSma - 1; // işaretli birikmiş sürüklenme
   const window = ratio.slice(-long);
   const returns: number[] = [];
   for (let i = 1; i < window.length; i++) {
@@ -102,9 +111,13 @@ function convictionFromRatio(
       returns.push(window[i] / prev - 1);
     }
   }
-  const vol = stdev(returns);
-  const noise = vol * Math.sqrt(long);
-  const strength = noise > 1e-9 ? gap / noise : Math.sign(gap) * 2;
+  // Yetersiz örnek → nötr kanaat.
+  if (returns.length < Math.floor(long / 2)) return 0.5;
+
+  const gap = shortSma / longSma - 1; // işaretli birikmiş sürüklenme
+  const vol = Math.max(stdev(returns), minPeriodicVol(timeframe)); // gürültü tabanı
+  const noise = vol * Math.sqrt(long); // taban sayesinde her zaman > 0
+  const strength = gap / noise;
   return Math.max(0, Math.min(1, 0.5 + 0.5 * Math.tanh(strength)));
 }
 

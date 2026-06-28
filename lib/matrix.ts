@@ -107,12 +107,14 @@ async function buildColumn(
   }
 
   // Kendi-endeksi satırı (§3.2): enstrüman / parent endeks. Endeks seçiliyse —.
+  // GÖREV 1 — sektör vekili, ölçülen hisse HARİÇ bileşenlerden türetilir (leave-one-out)
+  // ki hisse kendini içeren bir sepete bölünmesin (dairesellik/sönümleme).
   let ownIndexCell: CellResult = NA_CELL;
   if (instrument && colSeries) {
     const parent = getIndex(instrument.parentIndex);
     if (parent) {
       const parentSeries = await safe(`Endeks ${parent.key}`, () =>
-        fetchIndexSeries(parent, timeframe)
+        fetchIndexSeries(parent, timeframe, instrument.symbol)
       );
       if (parentSeries) ownIndexCell = computeCell(colSeries, parentSeries, timeframe);
     }
