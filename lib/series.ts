@@ -129,26 +129,39 @@ function mcapSumSeries(seriesList: Candle[][], timeframe: Timeframe): Candle[] {
   return out;
 }
 
-/** Bileşen hisselerinden normalize ortalama türetir (BIST sektör endeksi vekili). */
+/** Bileşen hisselerinden normalize ortalama türetir (BIST sektör endeksi vekili).
+ *  GÖREV 1 — `excludeSymbol` verilirse o bileşen hariç tutulur (leave-one-out):
+ *  bir hisseyi içinde kendisi de bulunan sepete bölme dairesini kırar. */
 async function syntheticFromConstituents(
   idx: IndexDef,
-  timeframe: Timeframe
+  timeframe: Timeframe,
+  excludeSymbol?: string
 ): Promise<Candle[]> {
+  const members = idx.constituents.filter((c) => c.symbol !== excludeSymbol);
+  if (members.length === 0) return []; // tek bileşendi ve o da çıkarıldı → vekil yok
   const series = await Promise.all(
-    idx.constituents.map((c) => fetchLeaf(instrumentSpec(c), timeframe).catch(() => [] as Candle[]))
+    members.map((c) => fetchLeaf(instrumentSpec(c), timeframe).catch(() => [] as Candle[]))
   );
   const valid = series.filter((s) => s.length > 0);
   if (valid.length === 0) return [];
   return averageSeries(valid, timeframe);
 }
 
-/** Bir endeksin kendi sütun serisini döndürür (gerçek seri ya da synthetic). */
-export async function fetchIndexSeries(idx: IndexDef, timeframe: Timeframe): Promise<Candle[]> {
+/** Bir endeksin sütun/benchmark serisini döndürür (gerçek seri ya da synthetic).
+ *  `excludeSymbol` (GÖREV 1) yalnızca synthetic/stock-vekili türetiminde leave-one-out
+ *  için kullanılır; gerçek endeks serisinde dairesellik ihmal edilebilir (mcap ağırlığı). */
+export async function fetchIndexSeries(
+  idx: IndexDef,
+  timeframe: Timeframe,
+  excludeSymbol?: string
+): Promise<Candle[]> {
   if (idx.apiSource !== 'synthetic') {
     // Gerçek seri yalnızca YETERLİ uzunluktaysa kabul edilir. Yahoo BIST sektör
     // endeksleri (XELKT.IS vb.) çoğu zaman boş YA DA çok kısa/seyrek seri döndürür;
     // kısa seri rasyo hizalamasında NA üretir. Bu yüzden uzun SMA penceresi kadar
     // veri yoksa bileşenlerden türetilen vekile düşülür (stock için garantili).
+    // Not: gerçek endeks varsa leave-one-out gerekmez (bileşen mcap ağırlığı küçük);
+    // LOO yalnızca eşit-ağırlıklı vekilde dairesellik için anlamlıdır.
     const minLen = smaWindows(timeframe).long + 5;
     let real: Candle[] = [];
     try {
@@ -162,7 +175,7 @@ export async function fetchIndexSeries(idx: IndexDef, timeframe: Timeframe): Pro
     if (real.length >= minLen) return real;
 
     if (idx.assetClass === 'stock' && idx.constituents.length > 0) {
-      const proxy = await syntheticFromConstituents(idx, timeframe);
+      const proxy = await syntheticFromConstituents(idx, timeframe, excludeSymbol);
       if (proxy.length > 0) return proxy;
     }
     if (real.length > 0) return real; // stock değilse en azından kısa gerçek seri
@@ -170,6 +183,7 @@ export async function fetchIndexSeries(idx: IndexDef, timeframe: Timeframe): Pro
   }
   const method = idx.synthetic?.method ?? 'avg';
   const exclude = new Set(idx.synthetic?.exclude ?? []);
+  if (excludeSymbol) exclude.add(excludeSymbol); // LOO: synthetic endekste de uygula
   const members = idx.constituents.filter((c) => !exclude.has(c.symbol));
 
   if (method === 'mcapSum') {

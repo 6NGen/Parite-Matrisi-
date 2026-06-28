@@ -15,7 +15,7 @@ import type {
 
 // Deploy doğrulama etiketi — yeni bir sürüm yayına girince bu metin değişir.
 // Böylece "yeni kod canlı mı" sayfanın altından tek bakışta anlaşılır.
-const APP_VERSION = 'sürüm 15 · temizlik (US10Y makro, uyarılar sadeleşti)';
+const APP_VERSION = 'sürüm 16 · LOO sektör + kanaat tabanı + na/bozuk-bar düzeltmeleri';
 
 type ViewMode = 'value' | 'change' | 'heat';
 type ScoreMode = 'focused' | 'broad';
@@ -328,7 +328,8 @@ export default function Matrix() {
               {FLAT_INDICES.map(({ idx }) => {
                 const col = columnsByKey.get(idx.key);
                 const sc = col ? pickScore(col, scoreMode) : null;
-                const penalized = sc?.regime?.applied ?? false;
+                const hasScore = !!sc && !sc.na; // GÖREV 5 — veri yok ise "—"
+                const penalized = hasScore ? sc!.regime?.applied ?? false : false;
                 const active = detailCol === idx.key;
                 return (
                   <td
@@ -337,7 +338,7 @@ export default function Matrix() {
                     title={sc ? scoreTitle(sc) : undefined}
                     onClick={() => col && setDetailCol(active ? null : idx.key)}
                   >
-                    <span className="num score-val">{sc ? sc.score : '—'}</span>
+                    <span className="num score-val">{hasScore ? sc!.score : '—'}</span>
                     {penalized && (
                       <span className="regime-flag" title="Yapısal düşüş: skor kısıldı">
                         ▽
@@ -352,9 +353,14 @@ export default function Matrix() {
               {FLAT_INDICES.map(({ idx }) => {
                 const col = columnsByKey.get(idx.key);
                 const sc = col ? pickScore(col, scoreMode) : null;
+                const hasScore = !!sc && !sc.na;
                 return (
                   <td key={idx.key}>
-                    {sc ? <span className={signalClass(sc.signal)}>{sc.signal}</span> : '—'}
+                    {hasScore ? (
+                      <span className={signalClass(sc!.signal)}>{sc!.signal}</span>
+                    ) : (
+                      <span className="cell na">—</span>
+                    )}
                   </td>
                 );
               })}
@@ -431,9 +437,16 @@ function ScoreDetail({
     <div className="score-detail">
       <div className="sd-head">
         <strong>
-          {col.displayName} — {mode === 'broad' ? 'GENİŞ' : 'ODAKLI'} SKOR {s.score}
-          {s.rawScore != null && s.rawScore !== s.score ? ` (ham ${s.rawScore})` : ''} ·{' '}
-          <span className={signalClass(s.signal)}>{s.signal}</span>
+          {col.displayName} — {mode === 'broad' ? 'GENİŞ' : 'ODAKLI'} SKOR{' '}
+          {s.na ? (
+            <span className="cell na">— veri yok</span>
+          ) : (
+            <>
+              {s.score}
+              {s.rawScore != null && s.rawScore !== s.score ? ` (ham ${s.rawScore})` : ''} ·{' '}
+              <span className={signalClass(s.signal)}>{s.signal}</span>
+            </>
+          )}
         </strong>
         <button className="btn sd-close" onClick={onClose}>
           Kapat ✕

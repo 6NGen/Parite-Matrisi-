@@ -124,8 +124,9 @@ function finalize(
   ctxRegime?: RegimeInfo
 ): ScoreResult {
   if (available === 0) {
+    // GÖREV 5 — "veri yok" ≠ gerçek 0 skor. na işaretle; UI "—" gösterir, sinyal basmaz.
     const regime = ctxRegime ? { ...ctxRegime, applied: false } : undefined;
-    return { symbol, score: 0, signal: 'NÖTR', breakdown, regime };
+    return { symbol, score: 0, signal: 'NÖTR', breakdown, regime, na: true };
   }
   const rawScore = Math.round((earned / available) * 100);
 

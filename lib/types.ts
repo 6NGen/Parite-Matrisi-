@@ -109,6 +109,7 @@ export interface ScoreResult {
   signal: Signal;
   breakdown: ScoreBreakdownItem[];
   regime?: RegimeInfo;
+  na?: boolean; // hiç geçerli kriter yok (veri yok) → UI "—" gösterir, sinyal basmaz
 }
 
 export interface NewsItem {
