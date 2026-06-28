@@ -56,20 +56,17 @@ export const REFERENCES: ReferenceRow[] = [
   // Reel faiz (ABD 10Y TIPS) — yalnızca ek gösterge satırı; skora dahil edilmez.
   // Altının fırsat maliyetini enflasyondan arındırılmış olarak okumak için panoramaya eklenir.
   { symbol: 'US10YR', displayName: 'ABD Reel Faiz (10Y TIPS)', kind: 'rate', apiSource: 'fred', apiSymbol: 'DFII10' },
-  // Türkiye faizi: Stooq Vercel IP'sini blokluyor; FRED ise çalışıyor. FRED'in
-  // canlı Türkiye faiz serileri sırayla denenir (devlet tahvili → hazine bonosu
-  // → interbank → eski OECD). İlk veri döndüren kazanır; hiçbiri yoksa US10Y'ye düşülür.
+  // Türkiye faizi: Teşhisle kanıtlandı — anahtarsız, GÜNCEL, Vercel'den erişilebilir
+  // kaynak yok. Stooq Vercel IP'sini blokluyor; FRED'in Türkiye serileri ya 404 ya
+  // da 2008'de donmuş (INTGSTTRM193N/IR3TIB01TRM156N son veri 2008-04). Donmuş veri
+  // yanıltıcı olduğundan kullanılmıyor → hücre "—", hisse makro kriteri US10Y'ye düşer.
+  // Güncel TR faizi için tek güvenilir yol TCMB EVDS (anahtarlı); env ile bağlanabilir.
   {
     symbol: 'TR10Y',
     displayName: 'TR Faiz',
     kind: 'rate',
     apiSource: 'fred',
-    apiSymbol: 'INTGSBTRM193N',
-    alternates: [
-      { apiSource: 'fred', apiSymbol: 'INTGSTTRM193N' },
-      { apiSource: 'fred', apiSymbol: 'IR3TIB01TRM156N' },
-      { apiSource: 'fred', apiSymbol: 'IRLTLT01TRM156N' },
-    ],
+    apiSymbol: 'IRLTLT01TRM156N',
   },
   { symbol: 'DXY', displayName: 'Dolar Endeksi', kind: 'price', apiSource: 'yahoo', apiSymbol: 'DX-Y.NYB' },
   { symbol: 'M2SL', displayName: 'ABD M2', kind: 'money', apiSource: 'fred', apiSymbol: 'M2SL' },
@@ -87,7 +84,7 @@ export const REFERENCES: ReferenceRow[] = [
 
 export const FX_YIELDS: Record<string, { apiSource: 'fred' | 'yahoo' | 'stooq'; apiSymbol: string; scale?: number }> = {
   USD: { apiSource: 'yahoo', apiSymbol: '^TNX' },
-  TRY: { apiSource: 'fred', apiSymbol: 'INTGSBTRM193N' },
+  TRY: { apiSource: 'fred', apiSymbol: 'IRLTLT01TRM156N' },
   EUR: { apiSource: 'fred', apiSymbol: 'IRLTLT01EZM156N' },
   GBP: { apiSource: 'fred', apiSymbol: 'IRLTLT01GBM156N' },
   JPY: { apiSource: 'fred', apiSymbol: 'IRLTLT01JPM156N' },
