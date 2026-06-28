@@ -36,11 +36,24 @@ export async function buildMatrix(
     }
   };
 
-  // 1) 11 makro referans serisini bir kez çek.
+  // Sessiz çekme: başarısızlıkta uyarı üretmez (beklenen-boş kaynaklar için).
+  const quiet = async (fn: () => Promise<Candle[]>): Promise<Candle[] | null> => {
+    try {
+      const s = await fn();
+      return s.length > 0 ? s : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // 1) Makro referans serilerini bir kez çek. `optional` referanslar (anahtarsız
+  //    güncel kaynağı olmayanlar, ör. TR faizi) sessizce boş geçilir.
   const refSeries: Record<string, Candle[] | null> = {};
   await Promise.all(
     REFERENCES.map(async (r) => {
-      refSeries[r.symbol] = await safe(`Ref ${r.symbol}`, () => fetchReference(r, timeframe));
+      refSeries[r.symbol] = r.optional
+        ? await quiet(() => fetchReference(r, timeframe))
+        : await safe(`Ref ${r.symbol}`, () => fetchReference(r, timeframe));
     })
   );
 
@@ -168,7 +181,7 @@ async function buildScore(
     ctx.commodityKind = commodityKind(idx, instrument);
   } else if (assetClass === 'forex') {
     const fx = instrument?.fx ?? idx.fx;
-    ctx.forexTrend = await forexSpreadTrend(fx, timeframe, safe);
+    ctx.forexTrend = await forexSpreadTrend(fx, timeframe);
   }
 
   return { result: computeScore(ctx), broad: computeBroadScore(ctx) };
@@ -181,10 +194,20 @@ function commodityKind(idx: IndexDef, instrument?: Instrument): 'gold' | 'silver
   return 'generic';
 }
 
+// Forex getiri serileri sessizce çekilir: bazı ülke 10Y kaynakları (ölü OECD
+// serileri) eksik olabilir; bu uyarı panelini doldurmamalı, skor sessizce NA olur.
+async function quietFetch(fn: () => Promise<Candle[]>): Promise<Candle[] | null> {
+  try {
+    const s = await fn();
+    return s.length > 0 ? s : null;
+  } catch {
+    return null;
+  }
+}
+
 async function forexSpreadTrend(
   fx: { base: string; quote: string } | undefined,
-  timeframe: Timeframe,
-  safe: (label: string, fn: () => Promise<Candle[]>) => Promise<Candle[] | null>
+  timeframe: Timeframe
 ): Promise<{ trendUp: boolean; na: boolean; deltaAbs?: number }> {
   if (!fx) return { trendUp: false, na: true };
   const baseY = FX_YIELDS[fx.base];
@@ -192,8 +215,8 @@ async function forexSpreadTrend(
   if (!baseY || !quoteY) return { trendUp: false, na: true };
 
   const [base, quote] = await Promise.all([
-    safe(`Getiri ${fx.base}`, () => fetchLeaf(baseY, timeframe)),
-    safe(`Getiri ${fx.quote}`, () => fetchLeaf(quoteY, timeframe)),
+    quietFetch(() => fetchLeaf(baseY, timeframe)),
+    quietFetch(() => fetchLeaf(quoteY, timeframe)),
   ]);
   if (!base || !quote) return { trendUp: false, na: true };
 
