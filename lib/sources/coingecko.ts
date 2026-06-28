@@ -13,6 +13,41 @@ interface MarketChart {
   market_caps?: [number, number][];
 }
 
+interface GlobalData {
+  data?: {
+    total_market_cap?: { usd?: number };
+    market_cap_percentage?: Record<string, number>;
+  };
+}
+
+export interface GlobalMcap {
+  total: number; // USD
+  btcPct: number; // %
+  ethPct: number; // %
+}
+
+// CoinGecko /global — GÜNCEL küresel piyasa değeri + BTC/ETH yüzdeleri (anahtarsız).
+// Not: Free API yalnızca anlık değer verir, geçmiş seri vermez; bu yüzden synthetic
+// TOTAL serisinin yalnızca MERTEBESİNİ gerçek değere sabitlemek için kullanılır.
+export async function fetchGlobalMcap(): Promise<GlobalMcap> {
+  const key = process.env.COINGECKO_API_KEY?.trim();
+  const host = key ? 'pro-api.coingecko.com' : 'api.coingecko.com';
+  const res = await fetchWithRetry(`https://${host}/api/v3/global`, {
+    timeoutMs: 12000,
+    retries: 1,
+    headers: key ? { 'x-cg-pro-api-key': key } : undefined,
+  });
+  if (!res.ok) throw new Error(`CoinGecko /global HTTP ${res.status}`);
+  const json = (await res.json()) as GlobalData;
+  const total = json.data?.total_market_cap?.usd;
+  if (!total || !Number.isFinite(total)) throw new Error('CoinGecko /global: total yok');
+  return {
+    total,
+    btcPct: json.data?.market_cap_percentage?.btc ?? 0,
+    ethPct: json.data?.market_cap_percentage?.eth ?? 0,
+  };
+}
+
 export async function fetchCoinGecko(
   coinId: string,
   timeframe: Timeframe,

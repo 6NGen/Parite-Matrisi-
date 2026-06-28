@@ -15,7 +15,7 @@ import type {
 
 // Deploy doğrulama etiketi — yeni bir sürüm yayına girince bu metin değişir.
 // Böylece "yeni kod canlı mı" sayfanın altından tek bakışta anlaşılır.
-const APP_VERSION = 'sürüm 17 · backtest uç noktası (/api/backtest)';
+const APP_VERSION = 'sürüm 18 · düşük-frekans uyarısı + gerçek TOTAL mertebesi';
 
 type ViewMode = 'value' | 'change' | 'heat';
 type ScoreMode = 'focused' | 'broad';
@@ -373,6 +373,7 @@ export default function Matrix() {
         <ScoreDetail
           col={columnsByKey.get(detailCol)!}
           mode={scoreMode}
+          timeframe={timeframe}
           onClose={() => setDetailCol(null)}
         />
       )}
@@ -388,6 +389,11 @@ export default function Matrix() {
         </span>
         <span>Renk yoğunluğu |Δ%| ile orantılı.</span>
         <span>SMA: {timeframe === 'daily' ? 'SMA20/SMA50 (günlük)' : 'SMA10/SMA30 (haftalık)'}</span>
+        {timeframe === 'daily' && (
+          <span className="lowfreq-flag">
+            ⚠ Likidite (WALCL/M2SL) düşük frekanslı — kripto için Haftalık vade daha anlamlı.
+          </span>
+        )}
         <span>
           <span className="regime-flag">▽</span> = yapısal düşüş (fiyat uzun SMA altında), skor
           kısıldı
@@ -422,14 +428,21 @@ function naCell(): CellResult {
   return { ratioNow: NaN, deltaPct: 0, trendUp: false, na: true };
 }
 
+// GÖREV 4 — düşük frekanslı paydalar (haftalık/aylık yayınlanan makro seriler).
+// Günlük vadede 20/50 günde neredeyse sabit kaldıkları için bu kriterlerin trendi
+// "enstrüman kendi başına yükseliyor mu"ya çöker; uyarı rozetiyle işaretlenir.
+const LOW_FREQ_REFS = new Set(['WALCL', 'M2SL']);
+
 // Dokunmatik/mobil kırılım paneli — SKOR'a dokununca açılır.
 function ScoreDetail({
   col,
   mode,
+  timeframe,
   onClose,
 }: {
   col: ColumnResult;
   mode: ScoreMode;
+  timeframe: Timeframe;
   onClose: () => void;
 }) {
   const s = pickScore(col, mode);
@@ -456,7 +469,18 @@ function ScoreDetail({
         <tbody>
           {s.breakdown.map((b) => (
             <tr key={b.ref}>
-              <td className="sd-ref">{b.ref}</td>
+              <td className="sd-ref">
+                {b.ref}
+                {timeframe === 'daily' && LOW_FREQ_REFS.has(b.ref) && (
+                  <span
+                    className="lowfreq-flag"
+                    title="Düşük frekanslı payda (haftalık/aylık yayınlanır) — günlük vadede trendi zayıf; Haftalık önerilir"
+                  >
+                    {' '}
+                    ⚠ düşük frekans
+                  </span>
+                )}
+              </td>
               <td className="sd-w num">ağ. {b.weight}</td>
               <td className="sd-c num">
                 {b.na ? '— veri yok' : `kanaat %${Math.round((b.conviction ?? 0) * 100)}`}

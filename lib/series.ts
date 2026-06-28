@@ -6,7 +6,7 @@ import type { Candle, IndexDef, Instrument, ReferenceRow, Timeframe } from './ty
 import { getCached, setCached } from './cache';
 import { fetchYahoo } from './sources/yahoo';
 import { fetchFred } from './sources/fred';
-import { fetchCoinGecko, type CoinField } from './sources/coingecko';
+import { fetchCoinGecko, fetchGlobalMcap, type CoinField } from './sources/coingecko';
 import { commonCalendar, resampleToCalendar } from './align';
 import { smaWindows } from './calc';
 
@@ -147,6 +147,31 @@ async function syntheticFromConstituents(
   return averageSeries(valid, timeframe);
 }
 
+// GÖREV 7 — Synthetic mcap-toplam serisinin MERTEBESİNİ gerçek küresel piyasa
+// değerine sabitler (CoinGecko /global anlık değeriyle). Sabit çarpan olduğu için
+// trend/skor değişmez; yalnızca gösterilen büyüklük trilyon-$ mertebesine gelir.
+// Geçmiş şekil yine bileşen sepetinden gelen yaklaşımdır (free API geçmiş global
+// piyasa değeri vermez). /global başarısızsa seri ölçeklenmeden döner.
+async function anchorToGlobal(summed: Candle[], idx: IndexDef): Promise<Candle[]> {
+  if (summed.length === 0) return summed;
+  try {
+    const g = await fetchGlobalMcap();
+    const exc = idx.synthetic?.exclude ?? [];
+    let frac = 1;
+    if (exc.includes('BTC')) frac -= g.btcPct / 100;
+    if (exc.includes('ETH')) frac -= g.ethPct / 100;
+    const target = g.total * Math.max(frac, 0.01);
+    const last = summed[summed.length - 1].close;
+    if (last > 0 && target > 0) {
+      const k = target / last;
+      return summed.map((c) => ({ t: c.t, close: c.close * k }));
+    }
+  } catch {
+    // /global yoksa ölçeklemeden bırak.
+  }
+  return summed;
+}
+
 /** Bir endeksin sütun/benchmark serisini döndürür (gerçek seri ya da synthetic).
  *  `excludeSymbol` (GÖREV 1) yalnızca synthetic/stock-vekili türetiminde leave-one-out
  *  için kullanılır; gerçek endeks serisinde dairesellik ihmal edilebilir (mcap ağırlığı). */
@@ -199,7 +224,8 @@ export async function fetchIndexSeries(
         )
       );
     }
-    return mcapSumSeries(series, timeframe);
+    const summed = mcapSumSeries(series, timeframe);
+    return anchorToGlobal(summed, idx);
   }
   // avg
   const series = await Promise.all(members.map((c) => fetchLeaf(instrumentSpec(c), timeframe)));
