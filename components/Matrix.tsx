@@ -15,7 +15,7 @@ import type {
 
 // Deploy doğrulama etiketi — yeni bir sürüm yayına girince bu metin değişir.
 // Böylece "yeni kod canlı mı" sayfanın altından tek bakışta anlaşılır.
-const APP_VERSION = 'sürüm 16 · LOO sektör + kanaat tabanı + na/bozuk-bar düzeltmeleri';
+const APP_VERSION = 'sürüm 17 · backtest uç noktası (/api/backtest)';
 
 type ViewMode = 'value' | 'change' | 'heat';
 type ScoreMode = 'focused' | 'broad';
