@@ -56,7 +56,16 @@ export const REFERENCES: ReferenceRow[] = [
   // Reel faiz (ABD 10Y TIPS) — yalnızca ek gösterge satırı; skora dahil edilmez.
   // Altının fırsat maliyetini enflasyondan arındırılmış olarak okumak için panoramaya eklenir.
   { symbol: 'US10YR', displayName: 'ABD Reel Faiz (10Y TIPS)', kind: 'rate', apiSource: 'fred', apiSymbol: 'DFII10' },
-  { symbol: 'TR10Y', displayName: 'TR 10Y', kind: 'rate', apiSource: 'fred', apiSymbol: 'IRLTLT01TRM156N' },
+  // Türkiye 10Y: FRED OECD serisi (IRLTLT01TRM156N) artık 404. Birincil olarak
+  // Stooq (anahtarsız, günlük tahvil getirisi), yedek olarak FRED denenir.
+  {
+    symbol: 'TR10Y',
+    displayName: 'TR 10Y',
+    kind: 'rate',
+    apiSource: 'stooq',
+    apiSymbol: '10try.b',
+    alternates: [{ apiSource: 'fred', apiSymbol: 'IRLTLT01TRM156N' }],
+  },
   { symbol: 'DXY', displayName: 'Dolar Endeksi', kind: 'price', apiSource: 'yahoo', apiSymbol: 'DX-Y.NYB' },
   { symbol: 'M2SL', displayName: 'ABD M2', kind: 'money', apiSource: 'fred', apiSymbol: 'M2SL' },
   { symbol: 'WALCL', displayName: 'Fed Bilançosu', kind: 'money', apiSource: 'fred', apiSymbol: 'WALCL' },
@@ -71,9 +80,9 @@ export const REFERENCES: ReferenceRow[] = [
 // FOREX faiz makası için ülke/para 10Y getiri kaynakları (§5.2 forex).
 // ----------------------------------------------------------------------------
 
-export const FX_YIELDS: Record<string, { apiSource: 'fred' | 'yahoo'; apiSymbol: string; scale?: number }> = {
+export const FX_YIELDS: Record<string, { apiSource: 'fred' | 'yahoo' | 'stooq'; apiSymbol: string; scale?: number }> = {
   USD: { apiSource: 'yahoo', apiSymbol: '^TNX' },
-  TRY: { apiSource: 'fred', apiSymbol: 'IRLTLT01TRM156N' },
+  TRY: { apiSource: 'stooq', apiSymbol: '10try.b' },
   EUR: { apiSource: 'fred', apiSymbol: 'IRLTLT01EZM156N' },
   GBP: { apiSource: 'fred', apiSymbol: 'IRLTLT01GBM156N' },
   JPY: { apiSource: 'fred', apiSymbol: 'IRLTLT01JPM156N' },
