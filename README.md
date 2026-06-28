@@ -126,9 +126,10 @@ Anahtarsız çalışır: Yahoo (anahtarsız), FRED (anahtarsız `fredgraph.csv`)
   ortalamayla** türetir (`syntheticFromConstituents`). Bireysel `.IS` hisseleri çalıştığından
   sektör kriteri (enstrüman / sektör endeksi) artık garantili hesaplanır. Vekilin kalitesi
   bileşen listesinin genişliğine bağlıdır; listeler temsilîdir, resmi tam üyelikle güncellenebilir.
-- **TR10Y (FRED `IRLTLT01TRM156N`) artık 404 dönüyor** (OECD MEI serisi kaldırılmış).
-  Uygulama bunu zarifçe ele alır: TR10Y hücresi `—`, hisse makro kriteri otomatik US10Y'ye
-  düşer. Anahtarsız güvenilir bir Türkiye 10Y günlük kaynağı bulunana kadar bu geçici.
+- **TR10Y:** FRED OECD serisi (`IRLTLT01TRM156N`) 404 döndüğü için birincil kaynak **Stooq**
+  (`10try.b`, anahtarsız günlük tahvil getirisi), yedek FRED. Referanslar çoklu-kaynak destekler:
+  birincil veri vermezse `alternates` sırayla denenir (`fetchReference`). Hiçbiri çalışmazsa
+  TR10Y hücresi `—` ve hisse makro kriteri yine US10Y'ye düşer.
 - **Kripto TOTAL/2/3** CoinGecko free API hız limitine (HTTP 429) takılabilir; coin'ler artık
   sırayla çekilir (burst azaltma) ve cache'lenir, ama yoğun anlarda bazı hücreler geçici `—`
   olabilir — "Yenile" ile düzelir.

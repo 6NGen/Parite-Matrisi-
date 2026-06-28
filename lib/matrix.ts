@@ -13,7 +13,7 @@ import type {
   Candle,
 } from './types';
 import { ALL_INDICES, REFERENCES, FX_YIELDS, getIndex } from './catalog';
-import { fetchLeaf, fetchIndexSeries, instrumentSpec, refSpec } from './series';
+import { fetchLeaf, fetchIndexSeries, instrumentSpec, fetchReference } from './series';
 import { computeCell, computeSpreadTrend, regimeFromSeries } from './calc';
 import { computeScore, computeBroadScore, type ScoreContext } from './score';
 
@@ -40,7 +40,7 @@ export async function buildMatrix(
   const refSeries: Record<string, Candle[] | null> = {};
   await Promise.all(
     REFERENCES.map(async (r) => {
-      refSeries[r.symbol] = await safe(`Ref ${r.symbol}`, () => fetchLeaf(refSpec(r), timeframe));
+      refSeries[r.symbol] = await safe(`Ref ${r.symbol}`, () => fetchReference(r, timeframe));
     })
   );
 

@@ -7,6 +7,7 @@ import { getCached, setCached } from './cache';
 import { fetchYahoo } from './sources/yahoo';
 import { fetchFred } from './sources/fred';
 import { fetchCoinGecko, type CoinField } from './sources/coingecko';
+import { fetchStooq } from './sources/stooq';
 import { commonCalendar, resampleToCalendar } from './align';
 import { smaWindows } from './calc';
 
@@ -52,6 +53,9 @@ async function doFetchLeaf(spec: LeafSpec, sym: string, timeframe: Timeframe): P
     case 'coingecko':
       candles = await fetchCoinGecko(spec.apiSymbol, timeframe, spec.coinField ?? 'price');
       break;
+    case 'stooq':
+      candles = await fetchStooq(spec.apiSymbol, timeframe);
+      break;
     default:
       throw new Error(`Bilinmeyen leaf kaynağı: ${spec.apiSource}`);
   }
@@ -65,6 +69,23 @@ async function doFetchLeaf(spec: LeafSpec, sym: string, timeframe: Timeframe): P
 
 export function refSpec(r: ReferenceRow): LeafSpec {
   return { apiSource: r.apiSource, apiSymbol: r.apiSymbol, scale: r.scale };
+}
+
+/** Referans serisini çeker; birincil kaynak veri vermezse alternatifleri sırayla
+ *  dener (ör. TR10Y: FRED ölü → Stooq). İlk geçerli seri kazanır. Hepsi
+ *  başarısızsa son hatayı fırlatır (tek uyarı üretir). */
+export async function fetchReference(r: ReferenceRow, timeframe: Timeframe): Promise<Candle[]> {
+  const specs: LeafSpec[] = [refSpec(r), ...(r.alternates ?? [])];
+  let lastErr: unknown;
+  for (const spec of specs) {
+    try {
+      const s = await fetchLeaf(spec, timeframe);
+      if (s.length > 0) return s;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(`Referans serisi alınamadı: ${r.symbol}`);
 }
 
 export function instrumentSpec(i: Instrument): LeafSpec {
