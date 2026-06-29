@@ -14,7 +14,7 @@ import type {
 } from './types';
 import { ALL_INDICES, REFERENCES, FX_YIELDS, getIndex } from './catalog';
 import { fetchLeaf, fetchIndexSeries, instrumentSpec, fetchReference } from './series';
-import { computeCell, computeSpreadTrend, regimeFromSeries } from './calc';
+import { computeCell, computeSpreadTrend, regimeFromSeries, overextensionFromSeries } from './calc';
 import { computeScore, computeBroadScore, type ScoreContext } from './score';
 
 const NA_CELL: CellResult = { ratioNow: NaN, deltaPct: 0, trendUp: false, na: true };
@@ -168,6 +168,8 @@ async function buildScore(
     ownIndexCell,
     // İYİLEŞTİRME 2 — rejim kapısı: sütunun kendi fiyat serisinin uzun SMA durumu.
     regime: colSeries ? regimeFromSeries(colSeries, timeframe) : undefined,
+    // Aşırı uzama dampeneri: fiyatın kendi geçmişine göre parabolik sapması.
+    overext: colSeries ? overextensionFromSeries(colSeries, timeframe) : undefined,
   };
 
   if (assetClass === 'stock') {

@@ -102,13 +102,23 @@ export interface RegimeInfo {
   applied: boolean; // skora ceza uygulandı mı (yalnızca yapısal düşüşte)
 }
 
+/** Aşırı uzama (overextension): fiyatın uzun SMA'sından sapması, varlığın KENDİ
+ *  geçmişine göre ne kadar olağandışı (z-skor). Yüksekse parabolik/tepe riski. */
+export interface OverextInfo {
+  z: number; // stretch z-skoru (varlığın kendi geçmişine göre)
+  stretchPct: number; // (fiyat / uzunSMA - 1) * 100
+  na: boolean;
+  applied: boolean; // aşırı uzama cezası uygulandı mı
+}
+
 export interface ScoreResult {
   symbol: string;
-  score: number; // 0–100 (rejim kapısı uygulanmış nihai skor)
-  rawScore?: number; // rejim kapısından önceki skor (şeffaflık)
+  score: number; // 0–100 (rejim + aşırı uzama dampeneri uygulanmış nihai skor)
+  rawScore?: number; // dampener öncesi skor (şeffaflık)
   signal: Signal;
   breakdown: ScoreBreakdownItem[];
   regime?: RegimeInfo;
+  overext?: OverextInfo;
   na?: boolean; // hiç geçerli kriter yok (veri yok) → UI "—" gösterir, sinyal basmaz
 }
 

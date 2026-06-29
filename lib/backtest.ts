@@ -5,7 +5,7 @@
 // azalıyor mu (sinyal ayrışıyor mu)?
 
 import type { AssetClass, Candle, Signal, Timeframe } from './types';
-import { computeCell, regimeFromSeries } from './calc';
+import { computeCell, regimeFromSeries, overextensionFromSeries } from './calc';
 import { computeScore, type ScoreContext } from './score';
 import {
   REFERENCES,
@@ -218,6 +218,7 @@ export async function runBacktest(
       useBankRef: instrument!.scoreFlags?.useBankRef,
       commodityKind: assetClass === 'commodity' ? commodityKind(instrument!.symbol) : undefined,
       regime: regimeFromSeries(sInst, timeframe),
+      overext: overextensionFromSeries(sInst, timeframe),
     };
     const res = computeScore(ctx);
     return { score: res.score, signal: res.signal, na: res.na ?? false };
