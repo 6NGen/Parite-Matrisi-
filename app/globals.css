@@ -318,6 +318,14 @@ thead .idx-head th.corner {
   font-weight: 600;
 }
 
+.overext-flag {
+  color: #9333ea;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 3px;
+  vertical-align: 1px;
+}
+
 .mode-switch {
   display: block;
   margin-top: 2px;

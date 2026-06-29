@@ -5,6 +5,7 @@
 import type {
   AssetClass,
   CellResult,
+  OverextInfo,
   RegimeInfo,
   ScoreBreakdownItem,
   ScoreResult,
@@ -15,6 +16,21 @@ import { convictionFromDelta, convictionFromSpread } from './calc';
 
 // Yapısal düşüş rejiminde skora uygulanan çarpan (İYİLEŞTİRME 2).
 const REGIME_PENALTY = 0.6;
+
+// Aşırı uzama (overextension) dampeneri — momentum modelinin parabolik/blow-off
+// hareketlerde (ör. 1 yılda 30x) GÜÇLÜ AL basmasını engeller. İki yol:
+//  (a) MUTLAK stretch: fiyat uzun SMA'nın çok üstünde (sürdürülen parabolik harekette
+//      stretch sabit-yüksek olur, z≈0 kalır; bu yüzden mutlak ölçü şarttır).
+//  (b) z-skor: fiyatın kendi geçmişine göre olağandışı ani sıçraması.
+// Severity = max(iki yolun fazlası); skor faktörü severity ile kademeli düşer.
+// Eşikler reel (enflasyondan arındırılmış) düşünülür: TR enflasyonunda SMA200 gecikmesi
+// fiyatı ~%20 üste taşır; %50+ stretch gerçek bir reel parabolik harekettir.
+const OVEREXT_STRETCH_THRESHOLD = 50; // % — bunun üstündeki mutlak stretch cezalanır
+const OVEREXT_STRETCH_SCALE = 50; // %/severity birimi
+const OVEREXT_Z_THRESHOLD = 2.5; // ani sıçrama için z eşiği
+const OVEREXT_MIN_STRETCH_FOR_Z = 25; // z-yolu için asgari mutlak stretch (%)
+const OVEREXT_SLOPE = 0.25; // severity birimi başına kıstırma
+const OVEREXT_FLOOR = 0.35; // en agresif çarpan (uç parabolikte ~KADEMELİ SAT'a iner)
 
 export interface ScoreContext {
   symbol: string;
@@ -31,6 +47,8 @@ export interface ScoreContext {
   commodityKind?: 'gold' | 'silver' | 'generic';
   /** Enstrümanın kendi fiyatının uzun vadeli rejimi (kapı). */
   regime?: RegimeInfo;
+  /** Aşırı uzama (parabolik/blow-off) dampeneri için. */
+  overext?: OverextInfo;
 }
 
 interface Criterion {
@@ -121,27 +139,52 @@ function finalize(
   earned: number,
   available: number,
   breakdown: ScoreBreakdownItem[],
-  ctxRegime?: RegimeInfo
+  ctxRegime?: RegimeInfo,
+  ctxOverext?: OverextInfo
 ): ScoreResult {
   if (available === 0) {
     // GÖREV 5 — "veri yok" ≠ gerçek 0 skor. na işaretle; UI "—" gösterir, sinyal basmaz.
     const regime = ctxRegime ? { ...ctxRegime, applied: false } : undefined;
-    return { symbol, score: 0, signal: 'NÖTR', breakdown, regime, na: true };
+    const overext = ctxOverext ? { ...ctxOverext, applied: false } : undefined;
+    return { symbol, score: 0, signal: 'NÖTR', breakdown, regime, overext, na: true };
   }
   const rawScore = Math.round((earned / available) * 100);
 
+  // İki dampener de rawScore üzerine çarpan olarak uygulanır (skor düşürür, yükseltmez).
+  let factor = 1;
+
   // İYİLEŞTİRME 2 — rejim kapısı: yapısal düşüşte (fiyat < yavaş SMA) skoru kıs.
-  let score = rawScore;
   let regime: RegimeInfo | undefined;
   if (ctxRegime && !ctxRegime.na) {
     const applied = !ctxRegime.up;
-    if (applied) score = Math.round(rawScore * REGIME_PENALTY);
+    if (applied) factor *= REGIME_PENALTY;
     regime = { ...ctxRegime, applied };
   } else if (ctxRegime) {
     regime = { ...ctxRegime, applied: false };
   }
 
-  return { symbol, score, rawScore, signal: signalFromScore(score), breakdown, regime };
+  // Aşırı uzama dampeneri: mutlak stretch (sürdürülen parabolik) ya da yüksek z (ani
+  // sıçrama) ne kadar şiddetliyse skoru o kadar kıs.
+  let overext: OverextInfo | undefined;
+  if (ctxOverext && !ctxOverext.na) {
+    const stretchExcess = Math.max(
+      0,
+      (ctxOverext.stretchPct - OVEREXT_STRETCH_THRESHOLD) / OVEREXT_STRETCH_SCALE
+    );
+    const zExcess =
+      ctxOverext.stretchPct >= OVEREXT_MIN_STRETCH_FOR_Z
+        ? Math.max(0, ctxOverext.z - OVEREXT_Z_THRESHOLD)
+        : 0;
+    const severity = Math.max(stretchExcess, zExcess);
+    const applied = severity > 0;
+    if (applied) factor *= Math.max(OVEREXT_FLOOR, 1 - OVEREXT_SLOPE * severity);
+    overext = { ...ctxOverext, applied };
+  } else if (ctxOverext) {
+    overext = { ...ctxOverext, applied: false };
+  }
+
+  const score = Math.round(rawScore * factor);
+  return { symbol, score, rawScore, signal: signalFromScore(score), breakdown, regime, overext };
 }
 
 // ODAKLI skor — sınıf için anlamlı referansların ağırlıklı alt kümesi (varsayılan).
@@ -173,7 +216,7 @@ export function computeScore(ctx: ScoreContext): ScoreResult {
     });
   }
 
-  return finalize(ctx.symbol, earned, available, breakdown, ctx.regime);
+  return finalize(ctx.symbol, earned, available, breakdown, ctx.regime, ctx.overext);
 }
 
 // GENİŞ skor — matristeki TÜM referans satırları (+ kendi endeksi) eşit ağırlıkla,
@@ -204,5 +247,5 @@ export function computeBroadScore(ctx: ScoreContext): ScoreResult {
   if (!ctx.ownIndexCell.na) add('Kendi Endeksi', ctx.ownIndexCell);
   for (const [ref, cell] of Object.entries(ctx.cells)) add(ref, cell);
 
-  return finalize(ctx.symbol, earned, available, breakdown, ctx.regime);
+  return finalize(ctx.symbol, earned, available, breakdown, ctx.regime, ctx.overext);
 }

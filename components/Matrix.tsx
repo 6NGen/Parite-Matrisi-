@@ -15,7 +15,7 @@ import type {
 
 // Deploy doğrulama etiketi — yeni bir sürüm yayına girince bu metin değişir.
 // Böylece "yeni kod canlı mı" sayfanın altından tek bakışta anlaşılır.
-const APP_VERSION = 'sürüm 18 · düşük-frekans uyarısı + gerçek TOTAL mertebesi';
+const APP_VERSION = 'sürüm 19 · aşırı uzama (△) dampeneri';
 
 type ViewMode = 'value' | 'change' | 'heat';
 type ScoreMode = 'focused' | 'broad';
@@ -79,13 +79,20 @@ function scoreTitle(s: ScoreResult): string {
     return `${b.ref}: ${b.passed ? '✓' : '✗'} ağırlık ${b.weight}${conv}`;
   });
   if (s.rawScore != null && s.rawScore !== s.score) {
-    lines.push(`Ham skor: ${s.rawScore} → rejim kapısı sonrası: ${s.score}`);
+    lines.push(`Ham skor: ${s.rawScore} → dampener sonrası: ${s.score}`);
   }
   if (s.regime && !s.regime.na) {
     lines.push(
       `Rejim: fiyat uzun SMA'nın ${s.regime.up ? 'ÜSTÜNDE' : 'ALTINDA'} ` +
         `(${s.regime.deltaPct >= 0 ? '+' : ''}${s.regime.deltaPct.toFixed(1)}%)` +
         (s.regime.applied ? ' — yapısal düşüş cezası uygulandı' : '')
+    );
+  }
+  if (s.overext && !s.overext.na) {
+    lines.push(
+      `Aşırı uzama: fiyat uzun SMA'nın %${s.overext.stretchPct.toFixed(0)} üstünde ` +
+        `(z=${s.overext.z.toFixed(1)})` +
+        (s.overext.applied ? ' — aşırı uzama cezası uygulandı' : '')
     );
   }
   return lines.join('\n');
@@ -330,6 +337,7 @@ export default function Matrix() {
                 const sc = col ? pickScore(col, scoreMode) : null;
                 const hasScore = !!sc && !sc.na; // GÖREV 5 — veri yok ise "—"
                 const penalized = hasScore ? sc!.regime?.applied ?? false : false;
+                const overextended = hasScore ? sc!.overext?.applied ?? false : false;
                 const active = detailCol === idx.key;
                 return (
                   <td
@@ -342,6 +350,11 @@ export default function Matrix() {
                     {penalized && (
                       <span className="regime-flag" title="Yapısal düşüş: skor kısıldı">
                         ▽
+                      </span>
+                    )}
+                    {overextended && (
+                      <span className="overext-flag" title="Aşırı uzamış (parabolik): skor kısıldı">
+                        △
                       </span>
                     )}
                   </td>
@@ -397,6 +410,9 @@ export default function Matrix() {
         <span>
           <span className="regime-flag">▽</span> = yapısal düşüş (fiyat uzun SMA altında), skor
           kısıldı
+        </span>
+        <span>
+          <span className="overext-flag">△</span> = aşırı uzamış (parabolik/blow-off), skor kısıldı
         </span>
         <span>SKOR'a dokun/tıkla → kriter kırılımı + kanaat % açılır.</span>
         <span>
@@ -497,6 +513,15 @@ function ScoreDetail({
           ({s.regime.deltaPct >= 0 ? '+' : ''}
           {s.regime.deltaPct.toFixed(1)}%)
           {s.regime.applied ? ' — yapısal düşüş cezası uygulandı (×0.6).' : '.'}
+        </p>
+      )}
+      {s.overext && !s.overext.na && (
+        <p className="sd-regime">
+          Aşırı uzama: fiyat uzun SMA'nın <strong>%{s.overext.stretchPct.toFixed(0)}</strong> üstünde
+          (z={s.overext.z.toFixed(1)})
+          {s.overext.applied
+            ? ' — △ aşırı uzama (parabolik) cezası uygulandı.'
+            : '.'}
         </p>
       )}
       <p className="sd-note">

@@ -1,7 +1,7 @@
 // Hesap çekirdeği (§3): rasyo serisi → SMA kesişimi → CellResult.
 // Prototipteki iki-noktalı yüzde değişimi yerine rasyonun SMA kesişimi kullanılır.
 
-import type { Candle, CellResult, RegimeInfo, Timeframe } from './types';
+import type { Candle, CellResult, OverextInfo, RegimeInfo, Timeframe } from './types';
 import { alignPair } from './align';
 
 export interface SmaWindows {
@@ -145,6 +145,36 @@ export function regimeFromSeries(series: Candle[], timeframe: Timeframe): Regime
   const last = closes[closes.length - 1];
   const deltaPct = (last / sma - 1) * 100;
   return { up: last >= sma, deltaPct, na: false, applied: false };
+}
+
+// Aşırı uzama (overextension): fiyatın uzun SMA'sından sapmasının (stretch), varlığın
+// KENDİ geçmişindeki stretch dağılımına göre z-skoru. Parabolik/blow-off hareketlerde
+// (ör. 1 yılda 30x) z yüksek olur. Rolling SMA ile O(n) hesaplanır.
+export function overextensionFromSeries(
+  series: Candle[],
+  timeframe: Timeframe
+): OverextInfo {
+  const n = regimeWindow(timeframe);
+  const closes = series.map((c) => c.close).filter((v) => Number.isFinite(v));
+  if (closes.length < n + 5) return { z: 0, stretchPct: 0, na: true, applied: false };
+
+  const stretches: number[] = [];
+  let sum = 0;
+  for (let i = 0; i < closes.length; i++) {
+    sum += closes[i];
+    if (i >= n) sum -= closes[i - n];
+    if (i >= n - 1) {
+      const sma = sum / n;
+      if (sma > 0) stretches.push(closes[i] / sma - 1);
+    }
+  }
+  if (stretches.length < 5) return { z: 0, stretchPct: 0, na: true, applied: false };
+
+  const cur = stretches[stretches.length - 1];
+  const m = stretches.reduce((a, b) => a + b, 0) / stretches.length;
+  const sd = stdev(stretches);
+  const z = sd > 1e-9 ? (cur - m) / sd : 0;
+  return { z, stretchPct: cur * 100, na: false, applied: false };
 }
 
 /** Bir farkın (forex faiz makası) trendini hesaplar — rasyo değil fark yolu (§5.2). */

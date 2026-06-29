@@ -54,6 +54,13 @@ lib/
    haftalık 40) altındaysa (yapısal düşüş) skor `×0.6` ile kısılır (`regimeFromSeries`).
    UI'da `▽` işareti ve SKOR tooltip'inde gösterilir. Yapısal düşüşte kısa vadeli
    zıplamanın "GÜÇLÜ AL" üretmesini engeller.
+
+2b. **Aşırı uzama (overextension) dampeneri:** Rejim kapısının simetrik karşılığı. Fiyat
+   uzun SMA'nın çok üstündeyse (parabolik/blow-off; ör. 1 yılda 30x) skor kademeli kısılır
+   (`overextensionFromSeries`). İki yol: mutlak stretch (sürdürülen parabolikte z≈0 kaldığı
+   için mutlak ölçü şart) ve z-skor (ani sıçrama). Eşikler reel düşünülür (TR enflasyonunda
+   SMA200 gecikmesi ~%20 üste taşır; %50+ gerçek reel paraboliktir). UI'da `△` işareti.
+   Momentum modelinin tepede "GÜÇLÜ AL" basmasını engeller — uç parabolik ~KADEMELİ SAT'a iner.
 3. **Hisse makro referansı TR10Y:** BIST hisseleri için makro baskı kriteri (20 puan)
    US10Y yerine **TR10Y** (Türk varlığına daha doğrudan); TR10Y verisi yoksa US10Y'ye düşer.
 
